@@ -1,0 +1,444 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>智能作业批改系统 | 个人博客</title><meta name="author" content="LKL"><meta name="copyright" content="LKL"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="ffffff"><meta name="description" content="从零构建智能作业批改系统：Spring Boot + Vue3 + RAG 实战 一个基于 AI 的全栈作业批改平台开发实录   项目概述这是一个面向教育场景的智能作业批改系统，支持多格式文档上传、AI 智能批改、流式对话交互，以及基于 RAG（检索增强生成）的知识库问答功能。 技术栈：  后端： Spring Boot 4.x + MyBatis-Plus + PostgreSQL + JWT">
+<meta property="og:type" content="article">
+<meta property="og:title" content="智能作业批改系统">
+<meta property="og:url" content="http://example.com/2026/04/17/blog-homework-system/index.html">
+<meta property="og:site_name" content="个人博客">
+<meta property="og:description" content="从零构建智能作业批改系统：Spring Boot + Vue3 + RAG 实战 一个基于 AI 的全栈作业批改平台开发实录   项目概述这是一个面向教育场景的智能作业批改系统，支持多格式文档上传、AI 智能批改、流式对话交互，以及基于 RAG（检索增强生成）的知识库问答功能。 技术栈：  后端： Spring Boot 4.x + MyBatis-Plus + PostgreSQL + JWT">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png">
+<meta property="article:published_time" content="2026-04-17T06:22:00.000Z">
+<meta property="article:modified_time" content="2026-04-17T06:22:00.000Z">
+<meta property="article:author" content="LKL">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="学习笔记">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "智能作业批改系统",
+  "url": "http://example.com/2026/04/17/blog-homework-system/",
+  "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png",
+  "datePublished": "2026-04-17T06:22:00.000Z",
+  "dateModified": "2026-04-17T06:22:00.000Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "LKL",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/images/favicon.png"><link rel="canonical" href="http://example.com/2026/04/17/blog-homework-system/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', 'ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          const hour = new Date().getHours()
+          const isNight = hour <= 6 || hour >= 18
+          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
+          else theme === 'light' ? activateLightMode() : activateDarkMode()
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: {"defaultEncoding":2,"translateDelay":0,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"简"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: true,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-right"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '智能作业批改系统',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/topimg.css"><link rel="stylesheet" href="/css/页脚渐变.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/photomode_12102024_122021.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">5</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">个人博客</span></a><a class="nav-page-title" href="/"><span class="site-name">智能作业批改系统</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">智能作业批改系统</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-04-17T06:22:00.000Z" title="发表于 2026-04-17 14:22:00">2026-04-17</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-04-17T06:22:00.000Z" title="更新于 2026-04-17 14:22:00">2026-04-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java%E5%90%8E%E7%AB%AF/">Java后端</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>10分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-04-17 14:22:00&quot;}" hidden></div><h1 id="从零构建智能作业批改系统：Spring-Boot-Vue3-RAG-实战"><a href="#从零构建智能作业批改系统：Spring-Boot-Vue3-RAG-实战" class="headerlink" title="从零构建智能作业批改系统：Spring Boot + Vue3 + RAG 实战"></a>从零构建智能作业批改系统：Spring Boot + Vue3 + RAG 实战</h1><blockquote>
+<p>一个基于 AI 的全栈作业批改平台开发实录</p>
+</blockquote>
+<hr>
+<h2 id="项目概述"><a href="#项目概述" class="headerlink" title="项目概述"></a>项目概述</h2><p>这是一个面向教育场景的智能作业批改系统，支持多格式文档上传、AI 智能批改、流式对话交互，以及基于 RAG（检索增强生成）的知识库问答功能。</p>
+<p><strong>技术栈：</strong></p>
+<ul>
+<li><strong>后端：</strong> Spring Boot 4.x + MyBatis-Plus + PostgreSQL + JWT</li>
+<li><strong>前端：</strong> Vue 3 + Element Plus + Pinia</li>
+<li><strong>AI 层：</strong> OpenClaw 网关 + 自研 RAG 引擎</li>
+<li><strong>文档解析：</strong> Apache Tika</li>
+</ul>
+<hr>
+<h2 id="一、系统架构设计"><a href="#一、系统架构设计" class="headerlink" title="一、系统架构设计"></a>一、系统架构设计</h2><h3 id="1-1-整体架构"><a href="#1-1-整体架构" class="headerlink" title="1.1 整体架构"></a>1.1 整体架构</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                          前端层 (Vue 3)                          │</span><br><span class="line">│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │</span><br><span class="line">│  │ 登录页面  │  │ 聊天页面  │  │ 文件上传  │  │ 历史记录  │        │</span><br><span class="line">│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line">                              │</span><br><span class="line">                              ▼</span><br><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        API 网关层                               │</span><br><span class="line">│              Spring Boot + Spring Security + JWT                │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line">                              │</span><br><span class="line">          ┌───────────────────┼───────────────────┐</span><br><span class="line">          ▼                   ▼                   ▼</span><br><span class="line">┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐</span><br><span class="line">│   用户认证模块    │  │   聊天/批改模块   │  │   RAG 知识库    │</span><br><span class="line">│  - 注册/登录     │  │  - 流式对话      │  │  - 文档解析      │</span><br><span class="line">│  - JWT 鉴权     │  │  - 作业批改      │  │  - 智能分块      │</span><br><span class="line">│  - 权限控制     │  │  - 历史记录      │  │  - 向量检索      │</span><br><span class="line">└─────────────────┘  └─────────────────┘  └─────────────────┘</span><br><span class="line">          │                   │                   │</span><br><span class="line">          └───────────────────┼───────────────────┘</span><br><span class="line">                              ▼</span><br><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                        数据持久层                                │</span><br><span class="line">│     PostgreSQL (业务数据)  +  pgvector (向量存储)                 │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br><span class="line">                              │</span><br><span class="line">                              ▼</span><br><span class="line">┌─────────────────────────────────────────────────────────────────┐</span><br><span class="line">│                      AI 服务层 (OpenClaw)                       │</span><br><span class="line">│              大模型调用 + 智能体编排 + 多模型路由                  │</span><br><span class="line">└─────────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-2-核心模块划分"><a href="#1-2-核心模块划分" class="headerlink" title="1.2 核心模块划分"></a>1.2 核心模块划分</h3><table>
+<thead>
+<tr>
+<th>模块</th>
+<th>职责</th>
+<th>关键技术</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auth</code></td>
+<td>用户认证与授权</td>
+<td>JWT、Spring Security</td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td>对话与批改核心</td>
+<td>SSE 流式、WebFlux</td>
+</tr>
+<tr>
+<td><code>rag</code></td>
+<td>知识库与检索</td>
+<td>向量嵌入、语义搜索</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td>文档管理</td>
+<td>Apache Tika、文件存储</td>
+</tr>
+<tr>
+<td><code>storage</code></td>
+<td>文件上传下载</td>
+<td>NIO、UUID 命名</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="二、核心技术实现"><a href="#二、核心技术实现" class="headerlink" title="二、核心技术实现"></a>二、核心技术实现</h2><h3 id="2-1-RAG-检索增强生成"><a href="#2-1-RAG-检索增强生成" class="headerlink" title="2.1 RAG 检索增强生成"></a>2.1 RAG 检索增强生成</h3><p>RAG 是本系统的核心亮点，实现了文档的智能解析、分块、嵌入和检索。</p>
+<h4 id="2-1-1-智能文档分块-SmartChunkService"><a href="#2-1-1-智能文档分块-SmartChunkService" class="headerlink" title="2.1.1 智能文档分块 (SmartChunkService)"></a>2.1.1 智能文档分块 (SmartChunkService)</h4><p>不同于简单的固定长度切割，系统实现了<strong>多策略智能分块</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 智能切割入口 - 根据文档类型选择最优策略</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> List&lt;DocumentChunk&gt; <span class="title function_">chunk</span><span class="params">(String content, ChunkConfig config)</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 文档类型检测</span></span><br><span class="line">    <span class="type">DocType</span> <span class="variable">docType</span> <span class="operator">=</span> detectDocType(content);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 根据类型选择切割策略</span></span><br><span class="line">    List&lt;String&gt; rawChunks;</span><br><span class="line">    <span class="keyword">switch</span> (docType) &#123;</span><br><span class="line">        <span class="keyword">case</span> MARKDOWN:</span><br><span class="line">            rawChunks = splitByMarkdownHeaders(content, config);  <span class="comment">// 按标题层级</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> CODE:</span><br><span class="line">            rawChunks = splitByCodeStructure(content, config);    <span class="comment">// 按函数/类</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> CONVERSATION:</span><br><span class="line">            rawChunks = splitByConversationTurns(content, config); <span class="comment">// 按对话轮次</span></span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            rawChunks = splitBySemanticBoundaries(content, config); <span class="comment">// 语义边界</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 3. 滑动窗口 + 上下文引用</span></span><br><span class="line">    <span class="keyword">return</span> applySlidingWindow(rawChunks, config);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>分块策略对比：</strong></p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>适用场景</th>
+<th>优势</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Markdown 标题分割</td>
+<td>文档、笔记</td>
+<td>保持章节完整性</td>
+</tr>
+<tr>
+<td>代码结构分割</td>
+<td>源代码文件</td>
+<td>按函数&#x2F;类边界切割</td>
+</tr>
+<tr>
+<td>对话轮次分割</td>
+<td>聊天记录</td>
+<td>保持对话上下文</td>
+</tr>
+<tr>
+<td>语义边界分割</td>
+<td>通用文本</td>
+<td>基于句子相似度</td>
+</tr>
+</tbody></table>
+<h4 id="2-1-2-语义边界检测算法"><a href="#2-1-2-语义边界检测算法" class="headerlink" title="2.1.2 语义边界检测算法"></a>2.1.2 语义边界检测算法</h4><p>核心思想：<strong>语义相似度低的句子边界 &#x3D; 主题转换点</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> List&lt;String&gt; <span class="title function_">splitBySemanticBoundaries</span><span class="params">(String content, ChunkConfig config)</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 按句子分割</span></span><br><span class="line">    String[] sentences = content.split(<span class="string">&quot;(?&lt;=[。！？.!?])\\s+&quot;</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 批量获取句子嵌入向量</span></span><br><span class="line">    List&lt;<span class="type">float</span>[]&gt; embeddings = embeddingService.embedBatch(Arrays.asList(sentences));</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 3. 检测语义边界</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; sentences.length; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (i &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="type">double</span> <span class="variable">similarity</span> <span class="operator">=</span> cosineSimilarity(embeddings.get(i), embeddings.get(i-<span class="number">1</span>));</span><br><span class="line">            <span class="comment">// 相似度低于阈值 = 主题转换 = 切割点</span></span><br><span class="line">            <span class="keyword">if</span> (similarity &lt; SEMANTIC_THRESHOLD) &#123;</span><br><span class="line">                <span class="comment">// 在此处切割</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-1-3-轻量级嵌入服务"><a href="#2-1-3-轻量级嵌入服务" class="headerlink" title="2.1.3 轻量级嵌入服务"></a>2.1.3 轻量级嵌入服务</h4><p>考虑到国内网络环境，放弃了 HuggingFace 模型下载，实现了<strong>基于词频的稀疏向量</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">EmbeddingService</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="type">float</span>[] embed(String text) &#123;</span><br><span class="line">        <span class="comment">// 提取关键词 + 2-gram</span></span><br><span class="line">        Map&lt;String, Integer&gt; wordFreq = extractKeywords(text);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 哈希映射到固定维度 (384维)</span></span><br><span class="line">        <span class="type">float</span>[] vector = <span class="keyword">new</span> <span class="title class_">float</span>[<span class="number">384</span>];</span><br><span class="line">        <span class="keyword">for</span> (Map.Entry&lt;String, Integer&gt; entry : wordFreq.entrySet()) &#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">idx</span> <span class="operator">=</span> Math.abs(entry.getKey().hashCode()) % <span class="number">384</span>;</span><br><span class="line">            vector[idx] += entry.getValue();</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// L2 归一化</span></span><br><span class="line">        <span class="keyword">return</span> normalize(vector);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>优势：</strong></p>
+<ul>
+<li>无需下载大模型，启动即用</li>
+<li>计算速度快，CPU 即可运行</li>
+<li>支持中文分词和 2-gram 特征</li>
+</ul>
+<h4 id="2-1-4-向量存储与检索"><a href="#2-1-4-向量存储与检索" class="headerlink" title="2.1.4 向量存储与检索"></a>2.1.4 向量存储与检索</h4><p>使用 PostgreSQL + pgvector 扩展：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 相似度搜索 - 使用 pgvector 的 &lt;=&gt; 操作符（余弦距离）</span></span><br><span class="line"><span class="keyword">public</span> List&lt;DocumentChunk&gt; <span class="title function_">similaritySearch</span><span class="params">(<span class="type">float</span>[] queryEmbedding, <span class="type">int</span> topK)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">        SELECT * FROM document_chunk</span></span><br><span class="line"><span class="string">        ORDER BY embedding_vec &lt;=&gt; ?::vector</span></span><br><span class="line"><span class="string">        LIMIT ?</span></span><br><span class="line"><span class="string">        &quot;&quot;&quot;</span>;</span><br><span class="line">    <span class="keyword">return</span> jdbcTemplate.query(sql, rowMapper, vectorStr, topK);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>降级策略：</strong> 当 pgvector 不可用时，自动回退到全表扫描 + 余弦相似度计算。</p>
+<h3 id="2-2-流式对话实现"><a href="#2-2-流式对话实现" class="headerlink" title="2.2 流式对话实现"></a>2.2 流式对话实现</h3><h4 id="2-2-1-SSE-流式响应"><a href="#2-2-1-SSE-流式响应" class="headerlink" title="2.2.1 SSE 流式响应"></a>2.2.1 SSE 流式响应</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@GetMapping(value = &quot;/stream&quot;, produces = MediaType.TEXT_EVENT_STREAM_VALUE)</span></span><br><span class="line"><span class="keyword">public</span> ResponseEntity&lt;StreamingResponseBody&gt; <span class="title function_">streamMessage</span><span class="params">(</span></span><br><span class="line"><span class="params">        <span class="meta">@RequestParam</span> String message,</span></span><br><span class="line"><span class="params">        <span class="meta">@RequestParam(required = false)</span> String sessionId)</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="type">StreamingResponseBody</span> <span class="variable">responseBody</span> <span class="operator">=</span> outputStream -&gt; &#123;</span><br><span class="line">        openClawService.streamChat(message, sessionId, status)</span><br><span class="line">            .doOnNext(chunk -&gt; &#123;</span><br><span class="line">                <span class="comment">// SSE 格式: data: &#123;...&#125;\n\n</span></span><br><span class="line">                <span class="type">String</span> <span class="variable">sseLine</span> <span class="operator">=</span> <span class="string">&quot;data: &quot;</span> + chunk + <span class="string">&quot;\n\n&quot;</span>;</span><br><span class="line">                outputStream.write(sseLine.getBytes());</span><br><span class="line">                outputStream.flush();</span><br><span class="line">            &#125;)</span><br><span class="line">            .doOnComplete(() -&gt; &#123;</span><br><span class="line">                outputStream.write(<span class="string">&quot;data: [DONE]\n\n&quot;</span>.getBytes());</span><br><span class="line">            &#125;)</span><br><span class="line">            .blockLast(Duration.ofMinutes(<span class="number">5</span>));</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> ResponseEntity.ok()</span><br><span class="line">        .header(<span class="string">&quot;X-Accel-Buffering&quot;</span>, <span class="string">&quot;no&quot;</span>)  <span class="comment">// 禁用 Nginx 缓冲</span></span><br><span class="line">        .body(responseBody);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-2-2-前端流式接收"><a href="#2-2-2-前端流式接收" class="headerlink" title="2.2.2 前端流式接收"></a>2.2.2 前端流式接收</h4><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 使用 ReadableStream API 处理 SSE</span></span><br><span class="line"><span class="keyword">const</span> reader = response.<span class="property">body</span>.<span class="title function_">getReader</span>();</span><br><span class="line"><span class="keyword">const</span> decoder = <span class="keyword">new</span> <span class="title class_">TextDecoder</span>();</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> &#123; done, value &#125; = <span class="keyword">await</span> reader.<span class="title function_">read</span>();</span><br><span class="line">    <span class="keyword">if</span> (done) <span class="keyword">break</span>;</span><br><span class="line">    </span><br><span class="line">    buffer += decoder.<span class="title function_">decode</span>(value, &#123; <span class="attr">stream</span>: <span class="literal">true</span> &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 按行分割处理 SSE 数据</span></span><br><span class="line">    <span class="keyword">const</span> lines = buffer.<span class="title function_">split</span>(<span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">    buffer = lines.<span class="title function_">pop</span>();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">const</span> line <span class="keyword">of</span> lines) &#123;</span><br><span class="line">        <span class="keyword">if</span> (line.<span class="title function_">startsWith</span>(<span class="string">&#x27;data: &#x27;</span>)) &#123;</span><br><span class="line">            <span class="keyword">const</span> data = line.<span class="title function_">slice</span>(<span class="number">6</span>);</span><br><span class="line">            <span class="comment">// 追加到消息内容</span></span><br><span class="line">            <span class="variable language_">this</span>.<span class="property">messages</span>[msgIndex].<span class="property">content</span> += data;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-多格式文档解析"><a href="#2-3-多格式文档解析" class="headerlink" title="2.3 多格式文档解析"></a>2.3 多格式文档解析</h3><p>使用 Apache Tika 实现统一的文档解析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">FileStorageServiceImpl</span> <span class="keyword">implements</span> <span class="title class_">FileStorageService</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> String <span class="title function_">parseWithTika</span><span class="params">(Path filePath)</span> &#123;</span><br><span class="line">        <span class="type">AutoDetectParser</span> <span class="variable">parser</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AutoDetectParser</span>();</span><br><span class="line">        <span class="type">BodyContentHandler</span> <span class="variable">handler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BodyContentHandler</span>(<span class="number">5</span> * <span class="number">1024</span> * <span class="number">1024</span>); <span class="comment">// 5MB 限制</span></span><br><span class="line">        <span class="type">Metadata</span> <span class="variable">metadata</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Metadata</span>();</span><br><span class="line">        <span class="type">ParseContext</span> <span class="variable">context</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ParseContext</span>();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// PDF 配置：关闭图片提取，按位置排序文本</span></span><br><span class="line">        <span class="type">PDFParserConfig</span> <span class="variable">pdfConfig</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">PDFParserConfig</span>();</span><br><span class="line">        pdfConfig.setExtractInlineImages(<span class="literal">false</span>);</span><br><span class="line">        pdfConfig.setSortByPosition(<span class="literal">true</span>);</span><br><span class="line">        context.set(PDFParserConfig.class, pdfConfig);</span><br><span class="line">        </span><br><span class="line">        parser.parse(inputStream, handler, metadata, context);</span><br><span class="line">        <span class="keyword">return</span> handler.toString();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>支持格式：</strong> PDF、Word、Excel、PPT、TXT、Markdown 等。</p>
+<h3 id="2-4-JWT-认证与权限控制"><a href="#2-4-JWT-认证与权限控制" class="headerlink" title="2.4 JWT 认证与权限控制"></a>2.4 JWT 认证与权限控制</h3><h4 id="2-4-1-JWT-工具类"><a href="#2-4-1-JWT-工具类" class="headerlink" title="2.4.1 JWT 工具类"></a>2.4.1 JWT 工具类</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JwtUtil</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">generateToken</span><span class="params">(Long userId, Integer status)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Jwts.builder()</span><br><span class="line">            .setSubject(String.valueOf(userId))</span><br><span class="line">            .claim(<span class="string">&quot;status&quot;</span>, status)</span><br><span class="line">            .setIssuedAt(<span class="keyword">new</span> <span class="title class_">Date</span>())</span><br><span class="line">            .setExpiration(<span class="keyword">new</span> <span class="title class_">Date</span>(System.currentTimeMillis() + EXPIRATION))</span><br><span class="line">            .signWith(key, SignatureAlgorithm.HS256)</span><br><span class="line">            .compact();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> Long <span class="title function_">getUserIdFromToken</span><span class="params">(String token)</span> &#123;</span><br><span class="line">        <span class="type">Claims</span> <span class="variable">claims</span> <span class="operator">=</span> parseToken(token);</span><br><span class="line">        <span class="keyword">return</span> Long.valueOf(claims.getSubject());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-4-2-Spring-Security-配置"><a href="#2-4-2-Spring-Security-配置" class="headerlink" title="2.4.2 Spring Security 配置"></a>2.4.2 Spring Security 配置</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@EnableWebSecurity</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SecurityConfig</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> SecurityFilterChain <span class="title function_">filterChain</span><span class="params">(HttpSecurity http)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        http</span><br><span class="line">            .csrf(csrf -&gt; csrf.disable())</span><br><span class="line">            .sessionManagement(session -&gt; </span><br><span class="line">                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span><br><span class="line">            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)</span><br><span class="line">            .authorizeHttpRequests(auth -&gt; auth</span><br><span class="line">                .requestMatchers(<span class="string">&quot;/api/auth/**&quot;</span>, <span class="string">&quot;/api/chat/health&quot;</span>).permitAll()</span><br><span class="line">                .anyRequest().authenticated()</span><br><span class="line">            );</span><br><span class="line">        <span class="keyword">return</span> http.build();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、关键技术点总结"><a href="#三、关键技术点总结" class="headerlink" title="三、关键技术点总结"></a>三、关键技术点总结</h2><h3 id="3-1-知识点梳理"><a href="#3-1-知识点梳理" class="headerlink" title="3.1 知识点梳理"></a>3.1 知识点梳理</h3><table>
+<thead>
+<tr>
+<th>技术领域</th>
+<th>核心知识点</th>
+<th>应用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Spring Boot</strong></td>
+<td>自动配置、Starter 依赖、Actuator</td>
+<td>快速搭建后端服务</td>
+</tr>
+<tr>
+<td><strong>Spring Security</strong></td>
+<td>过滤器链、JWT 认证、CORS 配置</td>
+<td>统一认证授权</td>
+</tr>
+<tr>
+<td><strong>MyBatis-Plus</strong></td>
+<td>代码生成、分页插件、逻辑删除</td>
+<td>数据库 CRUD</td>
+</tr>
+<tr>
+<td><strong>WebFlux</strong></td>
+<td>Reactive 编程、Mono&#x2F;Flux、背压</td>
+<td>流式数据处理</td>
+</tr>
+<tr>
+<td><strong>RAG</strong></td>
+<td>文档分块、向量嵌入、相似度检索</td>
+<td>知识库问答</td>
+</tr>
+<tr>
+<td><strong>Vue 3</strong></td>
+<td>Composition API、响应式系统、Teleport</td>
+<td>前端组件化</td>
+</tr>
+<tr>
+<td><strong>SSE</strong></td>
+<td>EventSource、ReadableStream</td>
+<td>实时消息推送</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-设计模式应用"><a href="#3-2-设计模式应用" class="headerlink" title="3.2 设计模式应用"></a>3.2 设计模式应用</h3><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>应用位置</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>策略模式</strong></td>
+<td>SmartChunkService</td>
+<td>不同文档类型使用不同分块策略</td>
+</tr>
+<tr>
+<td><strong>工厂模式</strong></td>
+<td>EmbeddingService</td>
+<td>根据配置创建不同的嵌入实现</td>
+</tr>
+<tr>
+<td><strong>降级模式</strong></td>
+<td>VectorStoreService</td>
+<td>pgvector 不可用时回退到全表扫描</td>
+</tr>
+<tr>
+<td><strong>拦截器模式</strong></td>
+<td>JWT 过滤器</td>
+<td>统一处理认证逻辑</td>
+</tr>
+</tbody></table>
+<h3 id="3-3-性能优化点"><a href="#3-3-性能优化点" class="headerlink" title="3.3 性能优化点"></a>3.3 性能优化点</h3><ol>
+<li><strong>连接池优化：</strong> 使用 HikariCP，配置合理的最大连接数</li>
+<li><strong>向量检索优化：</strong> pgvector 索引 + HNSW 算法</li>
+<li><strong>流式响应：</strong> 禁用 Nginx 缓冲，减少内存占用</li>
+<li><strong>批量嵌入：</strong> 一次性处理多个句子，减少 IO 次数</li>
+</ol>
+<hr>
+<h2 id="四、项目结构"><a href="#四、项目结构" class="headerlink" title="四、项目结构"></a>四、项目结构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">demo/</span><br><span class="line">├── src/main/java/com/firedemo/demo/</span><br><span class="line">│   ├── Bean/                    # 配置类</span><br><span class="line">│   │   ├── SecurityConfig.java  # 安全配置</span><br><span class="line">│   │   ├── OpenClawConfig.java  # AI 网关配置</span><br><span class="line">│   │   └── OpenClawProperties.java</span><br><span class="line">│   ├── Controller/              # 控制器层</span><br><span class="line">│   │   ├── AuthController.java  # 认证接口</span><br><span class="line">│   │   ├── ChatController.java  # 聊天/批改接口</span><br><span class="line">│   │   ├── DocumentController.java</span><br><span class="line">│   │   └── FileUploadController.java</span><br><span class="line">│   ├── Service/                 # 服务层</span><br><span class="line">│   │   ├── ChatHistoryService.java</span><br><span class="line">│   │   ├── DocumentService.java</span><br><span class="line">│   │   ├── FileStorageService.java</span><br><span class="line">│   │   ├── OpenClawService.java</span><br><span class="line">│   │   └── ServiceImpl/         # 实现类</span><br><span class="line">│   ├── Entity/                  # 实体类</span><br><span class="line">│   │   ├── User.java</span><br><span class="line">│   │   ├── Document.java</span><br><span class="line">│   │   ├── DocumentChunk.java</span><br><span class="line">│   │   ├── ChatHistory.java</span><br><span class="line">│   │   └── HomeworkEvaluation.java</span><br><span class="line">│   ├── mapper/                  # MyBatis Mapper</span><br><span class="line">│   ├── DTO/                     # 数据传输对象</span><br><span class="line">│   ├── VO/                      # 视图对象</span><br><span class="line">│   ├── utils/                   # 工具类</span><br><span class="line">│   │   ├── JwtUtil.java</span><br><span class="line">│   │   └── JwtAuthenticationFilter.java</span><br><span class="line">│   └── rag/                     # RAG 模块 ⭐</span><br><span class="line">│       ├── SmartChunkService.java    # 智能分块</span><br><span class="line">│       ├── EmbeddingService.java     # 嵌入服务</span><br><span class="line">│       ├── VectorStoreService.java   # 向量存储</span><br><span class="line">│       └── RAGController.java</span><br><span class="line">├── src/main/resources/</span><br><span class="line">│   └── application.yml</span><br><span class="line">└── pom.xml</span><br><span class="line"></span><br><span class="line">vue-project/</span><br><span class="line">├── src/</span><br><span class="line">│   ├── api/</span><br><span class="line">│   │   └── request.ts           # Axios 封装</span><br><span class="line">│   ├── views/</span><br><span class="line">│   │   ├── LoginView.vue        # 登录页</span><br><span class="line">│   │   ├── PageTwo.vue          # 聊天页 ⭐</span><br><span class="line">│   │   └── ...</span><br><span class="line">│   ├── stores/</span><br><span class="line">│   │   └── auth.ts              # Pinia 状态管理</span><br><span class="line">│   ├── router/</span><br><span class="line">│   │   └── index.ts</span><br><span class="line">│   └── main.ts</span><br><span class="line">└── package.json</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、开发过程中的踩坑记录"><a href="#五、开发过程中的踩坑记录" class="headerlink" title="五、开发过程中的踩坑记录"></a>五、开发过程中的踩坑记录</h2><h3 id="5-1-Lombok-与-Spring-Boot-4-x-兼容问题"><a href="#5-1-Lombok-与-Spring-Boot-4-x-兼容问题" class="headerlink" title="5.1 Lombok 与 Spring Boot 4.x 兼容问题"></a>5.1 Lombok 与 Spring Boot 4.x 兼容问题</h3><p><strong>现象：</strong> 编译时找不到生成的 getter&#x2F;setter 方法</p>
+<p><strong>解决：</strong> 确保 <code>maven-compiler-plugin</code> 正确配置 annotationProcessorPaths</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">plugin</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apache.maven.plugins<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>maven-compiler-plugin<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">annotationProcessorPaths</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">path</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.projectlombok<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">                <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>lombok<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;/<span class="name">path</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">annotationProcessorPaths</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">plugin</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-MyBatis-Plus-Spring-Boot-4-适配"><a href="#5-2-MyBatis-Plus-Spring-Boot-4-适配" class="headerlink" title="5.2 MyBatis-Plus Spring Boot 4 适配"></a>5.2 MyBatis-Plus Spring Boot 4 适配</h3><p><strong>现象：</strong> 启动报错，找不到 Mapper</p>
+<p><strong>解决：</strong> 使用专为 Spring Boot 4 适配的依赖</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.baomidou<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>mybatis-plus-spring-boot4-starter<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>3.5.15<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-SSE-连接被-Nginx-缓冲"><a href="#5-3-SSE-连接被-Nginx-缓冲" class="headerlink" title="5.3 SSE 连接被 Nginx 缓冲"></a>5.3 SSE 连接被 Nginx 缓冲</h3><p><strong>现象：</strong> 流式响应一次性返回，没有实时效果</p>
+<p><strong>解决：</strong> 添加响应头禁用缓冲</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">return</span> ResponseEntity.ok()</span><br><span class="line">    .header(<span class="string">&quot;X-Accel-Buffering&quot;</span>, <span class="string">&quot;no&quot;</span>)</span><br><span class="line">    .header(<span class="string">&quot;Cache-Control&quot;</span>, <span class="string">&quot;no-cache&quot;</span>)</span><br><span class="line">    .body(responseBody);</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-HuggingFace-模型下载失败"><a href="#5-4-HuggingFace-模型下载失败" class="headerlink" title="5.4 HuggingFace 模型下载失败"></a>5.4 HuggingFace 模型下载失败</h3><p><strong>现象：</strong> DJL 框架无法下载 embedding 模型</p>
+<p><strong>解决：</strong> 改用自研的基于词频的轻量级嵌入方案</p>
+<hr>
+<h2 id="六、未来规划"><a href="#六、未来规划" class="headerlink" title="六、未来规划"></a>六、未来规划</h2><ul>
+<li><input disabled="" type="checkbox"> 多模态支持：图片、手写体识别</li>
+<li><input disabled="" type="checkbox"> 批改模板：支持自定义批改标准</li>
+<li><input disabled="" type="checkbox"> 批量批改：一次上传多份作业</li>
+<li><input disabled="" type="checkbox"> 数据分析：评分统计、错题分析</li>
+<li><input disabled="" type="checkbox"> 多租户：支持班级&#x2F;学校隔离</li>
+</ul>
+<hr>
+<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>这个项目从 0 到 1 的过程中，最大的收获不是技术本身，而是<strong>工程化思维</strong>的培养：</p>
+<ol>
+<li><strong>先跑通，再优化</strong> - 不要一开始就追求完美架构</li>
+<li><strong>降级思维</strong> - 每个外部依赖都要有 fallback 方案</li>
+<li><strong>可观测性</strong> - 日志、监控、健康检查缺一不可</li>
+<li><strong>用户视角</strong> - 流式响应比等待完整回复体验好 10 倍</li>
+</ol>
+<p>希望这篇文章对你有所帮助。如有问题，欢迎交流！</p>
+<hr>
+<p><strong>项目地址：</strong> (待补充)<br><strong>作者：</strong> 龙空灵<br><strong>开发周期：</strong> 2 周</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">LKL</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/04/17/blog-homework-system/">http://example.com/2026/04/17/blog-homework-system/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">个人博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">学习笔记</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/04/17/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0-%E5%88%86%E7%B1%BB%E6%B5%8B%E8%AF%95/" title="测试文章·Java后端分类"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">测试文章·Java后端分类</div></div><div class="info-2"><div class="info-item-1">这是一篇测试文章测试分类是否正常显示。 二级标题分类：Java后端 </div></div></div></a><a class="pagination-related" href="/2026/04/16/20260416/" title="第一篇文章"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">第一篇文章</div></div><div class="info-2"><div class="info-item-1">这是第一篇文章</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/04/17/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0-%E5%88%86%E7%B1%BB%E6%B5%8B%E8%AF%95/" title="测试文章·Java后端分类"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-17</div><div class="info-item-2">测试文章·Java后端分类</div></div><div class="info-2"><div class="info-item-1">这是一篇测试文章测试分类是否正常显示。 二级标题分类：Java后端 </div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/photomode_12102024_122021.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">LKL</div><div class="author-info-description"></div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">5</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%8E%E9%9B%B6%E6%9E%84%E5%BB%BA%E6%99%BA%E8%83%BD%E4%BD%9C%E4%B8%9A%E6%89%B9%E6%94%B9%E7%B3%BB%E7%BB%9F%EF%BC%9ASpring-Boot-Vue3-RAG-%E5%AE%9E%E6%88%98"><span class="toc-number">1.</span> <span class="toc-text">从零构建智能作业批改系统：Spring Boot + Vue3 + RAG 实战</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E6%A6%82%E8%BF%B0"><span class="toc-number">1.1.</span> <span class="toc-text">项目概述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.2.</span> <span class="toc-text">一、系统架构设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="toc-number">1.2.1.</span> <span class="toc-text">1.1 整体架构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%9D%97%E5%88%92%E5%88%86"><span class="toc-number">1.2.2.</span> <span class="toc-text">1.2 核心模块划分</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%A0%B8%E5%BF%83%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.3.</span> <span class="toc-text">二、核心技术实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-RAG-%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90"><span class="toc-number">1.3.1.</span> <span class="toc-text">2.1 RAG 检索增强生成</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-1-%E6%99%BA%E8%83%BD%E6%96%87%E6%A1%A3%E5%88%86%E5%9D%97-SmartChunkService"><span class="toc-number">1.3.1.1.</span> <span class="toc-text">2.1.1 智能文档分块 (SmartChunkService)</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-2-%E8%AF%AD%E4%B9%89%E8%BE%B9%E7%95%8C%E6%A3%80%E6%B5%8B%E7%AE%97%E6%B3%95"><span class="toc-number">1.3.1.2.</span> <span class="toc-text">2.1.2 语义边界检测算法</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-3-%E8%BD%BB%E9%87%8F%E7%BA%A7%E5%B5%8C%E5%85%A5%E6%9C%8D%E5%8A%A1"><span class="toc-number">1.3.1.3.</span> <span class="toc-text">2.1.3 轻量级嵌入服务</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-1-4-%E5%90%91%E9%87%8F%E5%AD%98%E5%82%A8%E4%B8%8E%E6%A3%80%E7%B4%A2"><span class="toc-number">1.3.1.4.</span> <span class="toc-text">2.1.4 向量存储与检索</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E6%B5%81%E5%BC%8F%E5%AF%B9%E8%AF%9D%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.3.2.</span> <span class="toc-text">2.2 流式对话实现</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-1-SSE-%E6%B5%81%E5%BC%8F%E5%93%8D%E5%BA%94"><span class="toc-number">1.3.2.1.</span> <span class="toc-text">2.2.1 SSE 流式响应</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-2-2-%E5%89%8D%E7%AB%AF%E6%B5%81%E5%BC%8F%E6%8E%A5%E6%94%B6"><span class="toc-number">1.3.2.2.</span> <span class="toc-text">2.2.2 前端流式接收</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E5%A4%9A%E6%A0%BC%E5%BC%8F%E6%96%87%E6%A1%A3%E8%A7%A3%E6%9E%90"><span class="toc-number">1.3.3.</span> <span class="toc-text">2.3 多格式文档解析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-JWT-%E8%AE%A4%E8%AF%81%E4%B8%8E%E6%9D%83%E9%99%90%E6%8E%A7%E5%88%B6"><span class="toc-number">1.3.4.</span> <span class="toc-text">2.4 JWT 认证与权限控制</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-1-JWT-%E5%B7%A5%E5%85%B7%E7%B1%BB"><span class="toc-number">1.3.4.1.</span> <span class="toc-text">2.4.1 JWT 工具类</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-4-2-Spring-Security-%E9%85%8D%E7%BD%AE"><span class="toc-number">1.3.4.2.</span> <span class="toc-text">2.4.2 Spring Security 配置</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%85%B3%E9%94%AE%E6%8A%80%E6%9C%AF%E7%82%B9%E6%80%BB%E7%BB%93"><span class="toc-number">1.4.</span> <span class="toc-text">三、关键技术点总结</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E7%9F%A5%E8%AF%86%E7%82%B9%E6%A2%B3%E7%90%86"><span class="toc-number">1.4.1.</span> <span class="toc-text">3.1 知识点梳理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%BA%94%E7%94%A8"><span class="toc-number">1.4.2.</span> <span class="toc-text">3.2 设计模式应用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E7%82%B9"><span class="toc-number">1.4.3.</span> <span class="toc-text">3.3 性能优化点</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84"><span class="toc-number">1.5.</span> <span class="toc-text">四、项目结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%BC%80%E5%8F%91%E8%BF%87%E7%A8%8B%E4%B8%AD%E7%9A%84%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95"><span class="toc-number">1.6.</span> <span class="toc-text">五、开发过程中的踩坑记录</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-Lombok-%E4%B8%8E-Spring-Boot-4-x-%E5%85%BC%E5%AE%B9%E9%97%AE%E9%A2%98"><span class="toc-number">1.6.1.</span> <span class="toc-text">5.1 Lombok 与 Spring Boot 4.x 兼容问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-MyBatis-Plus-Spring-Boot-4-%E9%80%82%E9%85%8D"><span class="toc-number">1.6.2.</span> <span class="toc-text">5.2 MyBatis-Plus Spring Boot 4 适配</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-3-SSE-%E8%BF%9E%E6%8E%A5%E8%A2%AB-Nginx-%E7%BC%93%E5%86%B2"><span class="toc-number">1.6.3.</span> <span class="toc-text">5.3 SSE 连接被 Nginx 缓冲</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-4-HuggingFace-%E6%A8%A1%E5%9E%8B%E4%B8%8B%E8%BD%BD%E5%A4%B1%E8%B4%A5"><span class="toc-number">1.6.4.</span> <span class="toc-text">5.4 HuggingFace 模型下载失败</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E6%9C%AA%E6%9D%A5%E8%A7%84%E5%88%92"><span class="toc-number">1.7.</span> <span class="toc-text">六、未来规划</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E8%AF%AD"><span class="toc-number">1.8.</span> <span class="toc-text">结语</span></a></li></ol></li></ol></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By LKL</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="30" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/测试文章-分类测试/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/测试文章-分类测试/" alt="">测试文章·Java后端分类</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="2026/04/17/测试文章-分类测试/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2022/08/02/Markdown语法开篇/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="http://qiniu.gocit.cn/blog_posts_1/cover_img.jpeg" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2022-08-02</span><a class="blog-slider__title" href="2022/08/02/Markdown语法开篇/" alt="">建站首发：Markdown语法开篇</a><div class="blog-slider__text">务必阅读：适用于新手快速入门的Markdown语法使用教程，运用Markdown语法是建立blog的必要前提!</div><a class="blog-slider__button" href="2022/08/02/Markdown语法开篇/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = 'all';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+  function butterfly_categories_card_injector_config(){
+    // 检查容器是否存在
+    var parent_div_git = document.getElementById('recent-posts');
+    // 如果容器不存在，则动态创建
+    if (!parent_div_git) {
+      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
+      // 创建新容器（默认插入到页面主体顶部）
+      parent_div_git = document.createElement('div');
+      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
+      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
+    }
+    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/categories/Markdown/">Markdown</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">JAVA 后端</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/categories/Java后端/">Java后端</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr">玩转Win10</span></li></ul></div></div>';
+    console.log('已挂载 butterfly_categories_card');
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+  }
+  // 路径匹配逻辑（使用 startsWith）
+  if (location.pathname.startsWith('all') || 'all' === 'all') {
+    butterfly_categories_card_injector_config();
+  }
+  </script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
