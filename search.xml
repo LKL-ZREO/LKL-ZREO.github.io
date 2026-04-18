@@ -62,6 +62,31 @@
     
     
     <entry>
+      <title>计算机网络学习笔记（物理层+数据链路层完整版）</title>
+      <link href="/2026/04/17/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/"/>
+      <url>/2026/04/17/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/</url>
+      
+        <content type="html"><![CDATA[<h1 id="计算机网络学习笔记"><a href="#计算机网络学习笔记" class="headerlink" title="计算机网络学习笔记"></a>计算机网络学习笔记</h1><blockquote><p>超清晰整理 | 适合复习背诵</p></blockquote><hr><h2 id="一、网络分层结构"><a href="#一、网络分层结构" class="headerlink" title="一、网络分层结构"></a>一、网络分层结构</h2><h3 id="1-OSI-七层模型（理论）"><a href="#1-OSI-七层模型（理论）" class="headerlink" title="1. OSI 七层模型（理论）"></a>1. OSI 七层模型（理论）</h3><ol><li>物理层</li><li>数据链路层</li><li>网络层</li><li>传输层</li><li>会话层</li><li>表示层</li><li>应用层</li></ol><h3 id="2-TCP-IP-四层模型（实际使用）"><a href="#2-TCP-IP-四层模型（实际使用）" class="headerlink" title="2. TCP&#x2F;IP 四层模型（实际使用）"></a>2. TCP&#x2F;IP 四层模型（实际使用）</h3><ol><li>网络接口层</li><li>网络层</li><li>传输层</li><li>应用层</li></ol><hr><h2 id="二、通信基础概念"><a href="#二、通信基础概念" class="headerlink" title="二、通信基础概念"></a>二、通信基础概念</h2><ul><li><strong>信源</strong>：信息的发送方</li><li><strong>信宿</strong>：信息的接收方</li><li><strong>信道</strong>：信号传输的物理通道</li><li><strong>信号</strong><ul><li>数字信号：离散、不连续</li><li>模拟信号：连续变化</li></ul></li></ul><h3 id="码元、波特率、比特率"><a href="#码元、波特率、比特率" class="headerlink" title="码元、波特率、比特率"></a>码元、波特率、比特率</h3><ul><li><strong>码元</strong>：一个固定时长的信号波形，代表一个离散数值</li><li><strong>波特率</strong>：每秒传输的码元数（码元速率）</li><li><strong>比特率</strong>：每秒传输的比特数（信息速率）</li><li>关系：比特率 &#x3D; 波特率 × log₂(一个码元携带的比特数)</li></ul><hr><h2 id="三、信道的极限容量"><a href="#三、信道的极限容量" class="headerlink" title="三、信道的极限容量"></a>三、信道的极限容量</h2><h3 id="1-噪声"><a href="#1-噪声" class="headerlink" title="1. 噪声"></a>1. 噪声</h3><p>传输过程中混入的干扰信号，会影响数据准确性。</p><h3 id="2-奈奎斯特定理（无噪声）"><a href="#2-奈奎斯特定理（无噪声）" class="headerlink" title="2. 奈奎斯特定理（无噪声）"></a>2. 奈奎斯特定理（无噪声）</h3><p>极限码元传输速率：<br><code>C = 2W log₂(N)</code></p><ul><li>W：信道带宽</li><li>N：码元的离散电平数</li></ul><h3 id="3-香农定理（有噪声）"><a href="#3-香农定理（有噪声）" class="headerlink" title="3. 香农定理（有噪声）"></a>3. 香农定理（有噪声）</h3><p>极限信息传输速率：<br><code>C = W log₂(1 + S/N)</code></p><ul><li>S&#x2F;N：信噪比</li><li>信噪比（dB）&#x3D; 10 log₁₀(S&#x2F;N)</li><li>例：S&#x2F;N&#x3D;1000 → 30dB</li></ul><hr><h2 id="四、编码与调制"><a href="#四、编码与调制" class="headerlink" title="四、编码与调制"></a>四、编码与调制</h2><h3 id="1-常用编码"><a href="#1-常用编码" class="headerlink" title="1. 常用编码"></a>1. 常用编码</h3><ol><li><strong>NRZ 不归零编码</strong><br>高电平1，低电平0，简单但无法同步。</li><li><strong>RZ 归零编码</strong><br>每个码元中间归零，自带同步，但浪费带宽。</li><li><strong>NRZI 反向非归零</strong><br>翻转表示1，不翻转表示0。</li><li><strong>曼彻斯特编码</strong><br>前高后低&#x3D;1，前低后高&#x3D;0，自带时钟，以太网使用。</li><li><strong>差分曼彻斯特编码</strong><br>码元开始处翻转&#x3D;0，不翻转&#x3D;1，抗干扰更强。</li></ol><h3 id="2-编码特点"><a href="#2-编码特点" class="headerlink" title="2. 编码特点"></a>2. 编码特点</h3><ul><li>自同步能力</li><li>带宽开销</li><li>抗干扰能力</li></ul><h3 id="3-调制方式"><a href="#3-调制方式" class="headerlink" title="3. 调制方式"></a>3. 调制方式</h3><ul><li>调幅 AM</li><li>调频 FM</li><li>调相 PM</li><li>正交幅度调制 QAM</li></ul><hr><h2 id="五、传输介质"><a href="#五、传输介质" class="headerlink" title="五、传输介质"></a>五、传输介质</h2><h3 id="导向型"><a href="#导向型" class="headerlink" title="导向型"></a>导向型</h3><ul><li>双绞线</li><li>同轴电缆</li><li>光纤</li></ul><h3 id="非导向型"><a href="#非导向型" class="headerlink" title="非导向型"></a>非导向型</h3><ul><li>无线电、微波、红外、激光</li></ul><h3 id="物理层接口特性"><a href="#物理层接口特性" class="headerlink" title="物理层接口特性"></a>物理层接口特性</h3><ul><li>机械特性</li><li>电气特性</li><li>功能特性</li><li>规程特性</li></ul><hr><h2 id="六、物理层设备"><a href="#六、物理层设备" class="headerlink" title="六、物理层设备"></a>六、物理层设备</h2><ul><li><strong>中继器</strong>：放大信号，延长传输距离</li><li><strong>集线器</strong>：多口中继器，共享带宽，所有端口在同一个冲突域</li><li><strong>冲突域</strong>：同一域内设备同时发送会产生冲突</li><li>中继器与集线器<strong>不能隔离冲突域</strong></li></ul><hr><h2 id="七、数据链路层"><a href="#七、数据链路层" class="headerlink" title="七、数据链路层"></a>七、数据链路层</h2><h3 id="1-物理链路-逻辑链路"><a href="#1-物理链路-逻辑链路" class="headerlink" title="1. 物理链路 &amp; 逻辑链路"></a>1. 物理链路 &amp; 逻辑链路</h3><ul><li>物理链路：实际线路</li><li>逻辑链路：加上协议后的通信通道</li></ul><h3 id="2-数据链路层功能"><a href="#2-数据链路层功能" class="headerlink" title="2. 数据链路层功能"></a>2. 数据链路层功能</h3><ol><li><strong>封装成帧</strong><ul><li>帧定界</li><li>透明传输</li></ul></li><li><strong>透明传输</strong><br>不管数据是什么，都能正确传输。</li><li><strong>差错控制</strong><ul><li>检错：发现错误</li><li>纠错：自动修复错误</li></ul></li></ol><hr><h2 id="八、差错控制（完整补全版）"><a href="#八、差错控制（完整补全版）" class="headerlink" title="八、差错控制（完整补全版）"></a>八、差错控制（完整补全版）</h2><h3 id="1-检错编码"><a href="#1-检错编码" class="headerlink" title="1. 检错编码"></a>1. 检错编码</h3><h4 id="（1）奇偶校验码"><a href="#（1）奇偶校验码" class="headerlink" title="（1）奇偶校验码"></a>（1）奇偶校验码</h4><ul><li>在数据后加1位，使1的总数为奇数&#x2F;偶数。</li><li>只能检测<strong>奇数个位错误</strong>，无法纠错。</li></ul><h4 id="（2）循环冗余校验-CRC"><a href="#（2）循环冗余校验-CRC" class="headerlink" title="（2）循环冗余校验 CRC"></a>（2）循环冗余校验 CRC</h4><ul><li>通过多项式除法计算冗余码。</li><li>检错能力强，广泛用于数据链路层（如以太网）。</li><li>只能检错，<strong>不能纠错</strong>。</li></ul><hr><h3 id="2-纠错编码（你学到这里）"><a href="#2-纠错编码（你学到这里）" class="headerlink" title="2. 纠错编码（你学到这里）"></a>2. 纠错编码（你学到这里）</h3><h4 id="海明校验码"><a href="#海明校验码" class="headerlink" title="海明校验码"></a>海明校验码</h4><ul><li>既能<strong>检错</strong>，又能<strong>纠错</strong>（1位错可直接纠正）。</li><li>核心思想：加入多个校验位，按分组校验，定位错误位置。</li></ul><h4 id="海明码基本规则"><a href="#海明码基本规则" class="headerlink" title="海明码基本规则"></a>海明码基本规则</h4><ol><li>校验位 r 满足：<code>2ʳ ≥ 数据位 + r + 1</code></li><li>校验位放在 <strong>2⁰、2¹、2²…</strong> 位置（1、2、4、8…）</li><li>每一位数据由多个校验位共同监督</li><li>按异或运算得到校正因子，判断是否出错</li><li>若只有1位错，可直接定位并纠正</li></ol><h4 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h4><ul><li>可<strong>检测 2 位错误</strong></li><li>可<strong>纠正 1 位错误</strong></li><li>常用于对可靠性要求高的场景</li></ul>]]></content>
+      
+      
+      <categories>
+          
+          <category> 计算机网络 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 计算机网络 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>第一篇文章</title>
       <link href="/2026/04/16/20260416/"/>
       <url>/2026/04/16/20260416/</url>
