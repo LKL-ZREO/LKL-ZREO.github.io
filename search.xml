@@ -4,7 +4,65 @@
   
     
     <entry>
-      <title>学习日志｜项目可视化优化+算法BFS&amp;DP复盘</title>
+      <title>2026-04-21 每日总结 | 热力图修复 &amp; 学习复盘</title>
+      <link href="/2026/04/21/20260421-2/"/>
+      <url>/2026/04/21/20260421-2/</url>
+      
+        <content type="html"><![CDATA[<h2 id="一、今日工作完成"><a href="#一、今日工作完成" class="headerlink" title="一、今日工作完成"></a>一、今日工作完成</h2><h3 id="1-项目开发：热力图问题修复"><a href="#1-项目开发：热力图问题修复" class="headerlink" title="1. 项目开发：热力图问题修复"></a>1. 项目开发：热力图问题修复</h3><p>今日核心完成<strong>热力图功能修复</strong>，定位并解决了数据返回错误问题：</p><ul><li>问题根源：PostgreSQL 中 <code>avg()</code> 聚合函数返回高精度数值类型，直接强转为 <code>float</code> 会导致数据精度丢失、回传异常；</li><li>解决方案：调整数据类型转换逻辑，保证数值精度，热力图展示恢复正常。</li></ul><h3 id="2-项目后续改进方向"><a href="#2-项目后续改进方向" class="headerlink" title="2. 项目后续改进方向"></a>2. 项目后续改进方向</h3><ol><li><strong>AI生成功能推进</strong>：目前AI相关功能尚未落地，需梳理业务场景，规划AI结合点；</li><li><strong>通知消息优化</strong>：当前通知仅支持后端发送邮件，后续需对接 <code>openclaw</code>，实现消息推送至对应社交媒体。</li></ol><h2 id="二、学习成长复盘"><a href="#二、学习成长复盘" class="headerlink" title="二、学习成长复盘"></a>二、学习成长复盘</h2><h3 id="1-英语-技术四大件"><a href="#1-英语-技术四大件" class="headerlink" title="1. 英语 &amp; 技术四大件"></a>1. 英语 &amp; 技术四大件</h3><ul><li>固定学习任务全部完成；</li><li>技术四大件学习<strong>10个课时</strong>，重做往期习题；</li><li>核心收获：发现考点与基础学习内容存在差异，初步摸清考试逻辑与考察重点。</li></ul><h3 id="2-个人项目：博客系统升级"><a href="#2-个人项目：博客系统升级" class="headerlink" title="2. 个人项目：博客系统升级"></a>2. 个人项目：博客系统升级</h3><p>为自用博客系统新增视觉特效，优化前端交互体验。</p><h3 id="3-算法学习：动态规划（DP）"><a href="#3-算法学习：动态规划（DP）" class="headerlink" title="3. 算法学习：动态规划（DP）"></a>3. 算法学习：动态规划（DP）</h3><ul><li>主攻方向：动态规划专题，持续攻克难点；</li><li>核心痛点：问题拆分、边界条件确定仍需大量经验积累；</li><li>学习目标：熟练掌握<strong>记忆化搜索</strong>解题思路；</li><li>后续计划：重温灵神（灵茶山艾府）DP教程，强化解题思维。</li></ul><h2 id="三、明日计划"><a href="#三、明日计划" class="headerlink" title="三、明日计划"></a>三、明日计划</h2><ol><li><strong>固定任务</strong>：完成每日英语、技术四大件学习；</li><li><strong>锻炼身体</strong>：<ul><li>下雨：宿舍室内锻炼 1 小时；</li><li>晴天：户外跑步 30 分钟；</li></ul></li><li><strong>算法推进</strong>：继续学习动态规划，巩固记忆化搜索。</li></ol><hr><h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>今日完成核心项目bug修复，夯实了技术基础学习，算法DP仍需持续深耕。保持学习节奏，兼顾身体与成长，稳步推进各项任务～</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 学习记录 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 算法 </tag>
+            
+            <tag> 学习复盘 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>作业批改系统热力图不显示问题排查记录</title>
+      <link href="/2026/04/21/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%952/"/>
+      <url>/2026/04/21/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%952/</url>
+      
+        <content type="html"><![CDATA[<h2 id="问题现象"><a href="#问题现象" class="headerlink" title="问题现象"></a>问题现象</h2><p>教学数据仪表盘中的「知识点掌握度热力图」区域空白，不显示任何数据。浏览器控制台显示接口返回 500 错误。</p><p><img src="https://via.placeholder.com/600x300/f5f5f5/999999?text=%E7%83%AD%E5%8A%9B%E5%9B%BE%E5%8C%BA%E5%9F%9F%E7%A9%BA%E7%99%BD" alt="热力图空白示意图"></p><span id="more"></span><h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><h3 id="第一步：确认数据链路"><a href="#第一步：确认数据链路" class="headerlink" title="第一步：确认数据链路"></a>第一步：确认数据链路</h3><p>首先检查后端的 <code>HomeworkKnowledgeMapper</code>，发现 SQL 查询逻辑是正确的：</p><ul><li>从 <code>homework_knowledge</code> 表查询知识点掌握记录</li><li>JOIN <code>homework_evaluation</code> 表按班级筛选</li><li>按知识点分组计算平均掌握度</li></ul><p>数据流设计没有问题，直接查询批改结果表，避免了知识点名称映射的混乱。</p><h3 id="第二步：定位后端异常"><a href="#第二步：定位后端异常" class="headerlink" title="第二步：定位后端异常"></a>第二步：定位后端异常</h3><p>查看后端日志，发现具体的错误信息：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java.lang.ClassCastException: <span class="keyword">class</span> <span class="title class_">java</span>.math.BigDecimal cannot be cast to <span class="keyword">class</span> <span class="title class_">java</span>.lang.Double</span><br></pre></td></tr></table></figure><p>错误发生在 <code>DashboardServiceImpl.java</code> 第 121 行。</p><h3 id="第三步：分析根因"><a href="#第三步：分析根因" class="headerlink" title="第三步：分析根因"></a>第三步：分析根因</h3><p>问题出在类型转换上：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 原代码</span></span><br><span class="line"><span class="type">Double</span> <span class="variable">avgMastery</span> <span class="operator">=</span> (Double) stat.get(<span class="string">&quot;avg_mastery&quot;</span>);</span><br></pre></td></tr></table></figure><p><strong>PostgreSQL 的 <code>AVG()</code> 函数返回的是 <code>BigDecimal</code> 类型</strong>，而不是 <code>Double</code>。直接使用强制类型转换会抛出 <code>ClassCastException</code>。</p><p>这是不同数据库之间的差异：</p><table><thead><tr><th>数据库</th><th>AVG() 返回类型</th></tr></thead><tbody><tr><td>MySQL</td><td>Double &#x2F; Long</td></tr><tr><td>PostgreSQL</td><td>BigDecimal</td></tr><tr><td>Oracle</td><td>BigDecimal</td></tr></tbody></table><h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>修改 <code>DashboardServiceImpl.java</code> 中的类型处理逻辑：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 修复后的代码</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">avgMasteryObj</span> <span class="operator">=</span> stat.get(<span class="string">&quot;avg_mastery&quot;</span>);</span><br><span class="line"><span class="type">int</span> <span class="variable">mastery</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"><span class="keyword">if</span> (avgMasteryObj != <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> (avgMasteryObj <span class="keyword">instanceof</span> Number) &#123;</span><br><span class="line">        mastery = ((Number) avgMasteryObj).intValue();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">dto.setMastery(mastery);</span><br></pre></td></tr></table></figure><p>使用 <code>Number</code> 接口作为中间层，可以兼容 <code>BigDecimal</code>、<code>Double</code>、<code>Float</code> 等各种数值类型。</p><h2 id="经验总结"><a href="#经验总结" class="headerlink" title="经验总结"></a>经验总结</h2><h3 id="1-数据库兼容性注意点"><a href="#1-数据库兼容性注意点" class="headerlink" title="1. 数据库兼容性注意点"></a>1. 数据库兼容性注意点</h3><p>当使用聚合函数（<code>AVG()</code>、<code>SUM()</code>、<code>COUNT()</code> 等）时，不同数据库的返回类型可能不同。编写跨数据库兼容的代码时，需要特别注意这一点。</p><h3 id="2-防御性编程"><a href="#2-防御性编程" class="headerlink" title="2. 防御性编程"></a>2. 防御性编程</h3><p>处理数据库查询结果时，避免直接强制类型转换：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 不推荐 - 可能抛出 ClassCastException</span></span><br><span class="line"><span class="type">double</span> <span class="variable">value</span> <span class="operator">=</span> (Double) map.get(<span class="string">&quot;column&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 推荐 - 安全类型转换</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">obj</span> <span class="operator">=</span> map.get(<span class="string">&quot;column&quot;</span>);</span><br><span class="line"><span class="type">double</span> <span class="variable">value</span> <span class="operator">=</span> obj <span class="keyword">instanceof</span> Number ? ((Number) obj).doubleValue() : <span class="number">0.0</span>;</span><br></pre></td></tr></table></figure><h3 id="3-日志的重要性"><a href="#3-日志的重要性" class="headerlink" title="3. 日志的重要性"></a>3. 日志的重要性</h3><p>如果没有后端详细的异常堆栈，这个问题很难定位。生产环境务必开启完整的日志记录，包括：</p><ul><li>SQL 执行日志</li><li>异常堆栈信息</li><li>请求&#x2F;响应参数</li></ul><h2 id="最终效果"><a href="#最终效果" class="headerlink" title="最终效果"></a>最终效果</h2><p>修复后热力图正常显示，按掌握度从低到高排序，颜色区分：</p><ul><li>🔴 <strong>红色</strong>：掌握度 &lt; 60%（薄弱）</li><li>🟡 <strong>黄色</strong>：掌握度 60%-80%（一般）</li><li>🟢 <strong>绿色</strong>：掌握度 &gt; 80%（良好）</li></ul><h2 id="技术栈"><a href="#技术栈" class="headerlink" title="技术栈"></a>技术栈</h2><ul><li><strong>后端</strong>: Spring Boot + MyBatis-Plus + PostgreSQL</li><li><strong>前端</strong>: Vue 3</li><li><strong>问题类型</strong>: 数据库类型兼容性问题</li><li><strong>修复耗时</strong>: 10 分钟</li></ul><hr><blockquote><p>本文首发于个人博客，转载请注明出处。</p></blockquote>]]></content>
+      
+      
+      <categories>
+          
+          <category> 项目总结 </category>
+          
+          <category> Java后端 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Spring Boot </tag>
+            
+            <tag> PostgreSQL </tag>
+            
+            <tag> Bug排查 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>2026-04-20 学习日志｜项目可视化优化+算法BFS&amp;DP复盘</title>
       <link href="/2026/04/20/20260421/"/>
       <url>/2026/04/20/20260421/</url>
       
@@ -80,9 +138,9 @@
             
             <tag> 学习复盘 </tag>
             
-            <tag> 考研 </tag>
-            
             <tag> 计算机网络 </tag>
+            
+            <tag> 考研 </tag>
             
             <tag> 项目规划 </tag>
             
@@ -112,35 +170,6 @@
         <tags>
             
             <tag> 计算机网络 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>测试文章·Java后端分类</title>
-      <link href="/2026/04/17/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0-%E5%88%86%E7%B1%BB%E6%B5%8B%E8%AF%95/"/>
-      <url>/2026/04/17/%E6%B5%8B%E8%AF%95%E6%96%87%E7%AB%A0-%E5%88%86%E7%B1%BB%E6%B5%8B%E8%AF%95/</url>
-      
-        <content type="html"><![CDATA[<h1 id="这是一篇测试文章"><a href="#这是一篇测试文章" class="headerlink" title="这是一篇测试文章"></a>这是一篇测试文章</h1><p>测试分类是否正常显示。</p><h2 id="二级标题"><a href="#二级标题" class="headerlink" title="二级标题"></a>二级标题</h2><p>分类：Java后端</p>]]></content>
-      
-      
-      <categories>
-          
-          <category> Java后端 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> Java </tag>
-            
-            <tag> 后端 </tag>
-            
-            <tag> 学习笔记 </tag>
             
         </tags>
       
@@ -197,19 +226,6 @@
             <tag> 计算机网络 </tag>
             
         </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>第一篇文章</title>
-      <link href="/2026/04/16/20260416/"/>
-      <url>/2026/04/16/20260416/</url>
-      
-        <content type="html"><![CDATA[<h2 id="这是第一篇文章"><a href="#这是第一篇文章" class="headerlink" title="这是第一篇文章"></a>这是第一篇文章</h2>]]></content>
-      
-      
       
     </entry>
     
