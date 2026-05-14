@@ -1,0 +1,322 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>ESP32 NimBLE 蓝牙扫描&quot;假死&quot;问题排查与修复 | LKL-ZREO</title><meta name="author" content="龙空灵"><meta name="copyright" content="龙空灵"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="ffffff"><meta name="description" content="问题现象ESP32-S3 BLE 打印机桥接项目中，以下操作流程必然复现：  打开蓝牙开关 → 扫描正常，设备列表填充 选择设备点击”连接” → 连接超时失败 → 按钮恢复 关闭蓝牙再打开 → MAC 列表全空，扫描彻底停止，再无新设备出现  根因分析一句话：ble_gap_connect() 使用 BLE_HS_FOREVER 无超时连接，软件层 10 秒判定失败后未取消底层连接过程，NimBL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ESP32 NimBLE 蓝牙扫描&quot;假死&quot;问题排查与修复">
+<meta property="og:url" content="http://example.com/2026/05/14/esp32-nimble-ble-scan-freeze-fix/index.html">
+<meta property="og:site_name" content="LKL-ZREO">
+<meta property="og:description" content="问题现象ESP32-S3 BLE 打印机桥接项目中，以下操作流程必然复现：  打开蓝牙开关 → 扫描正常，设备列表填充 选择设备点击”连接” → 连接超时失败 → 按钮恢复 关闭蓝牙再打开 → MAC 列表全空，扫描彻底停止，再无新设备出现  根因分析一句话：ble_gap_connect() 使用 BLE_HS_FOREVER 无超时连接，软件层 10 秒判定失败后未取消底层连接过程，NimBL">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png">
+<meta property="article:published_time" content="2026-05-14T15:11:00.000Z">
+<meta property="article:modified_time" content="2026-05-14T15:12:55.103Z">
+<meta property="article:author" content="龙空灵">
+<meta property="article:tag" content="BLE">
+<meta property="article:tag" content="ESP32">
+<meta property="article:tag" content="NimBLE">
+<meta property="article:tag" content="嵌入式">
+<meta property="article:tag" content="调试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "ESP32 NimBLE 蓝牙扫描\"假死\"问题排查与修复",
+  "url": "http://example.com/2026/05/14/esp32-nimble-ble-scan-freeze-fix/",
+  "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png",
+  "datePublished": "2026-05-14T15:11:00.000Z",
+  "dateModified": "2026-05-14T15:12:55.103Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "龙空灵",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/images/favicon.png"><link rel="canonical" href="http://example.com/2026/05/14/esp32-nimble-ble-scan-freeze-fix/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', 'ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          const hour = new Date().getHours()
+          const isNight = hour <= 6 || hour >= 18
+          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
+          else theme === 'light' ? activateLightMode() : activateDarkMode()
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: {"defaultEncoding":2,"translateDelay":0,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"简"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: true,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-right"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'ESP32 NimBLE 蓝牙扫描"假死"问题排查与修复',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><link rel="stylesheet" href="/css/universe.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/animate.min.css" media="print" onload="this.media='screen'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">20</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">9</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">ESP32 NimBLE 蓝牙扫描&quot;假死&quot;问题排查与修复</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">ESP32 NimBLE 蓝牙扫描&quot;假死&quot;问题排查与修复</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-14T15:11:00.000Z" title="发表于 2026-05-14 23:11:00">2026-05-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-14T15:12:55.103Z" title="更新于 2026-05-14 23:12:55">2026-05-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%BC%80%E5%8F%91/">嵌入式开发</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">937</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>3分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-05-14 23:12:55&quot;}" hidden></div><h2 id="问题现象"><a href="#问题现象" class="headerlink" title="问题现象"></a>问题现象</h2><p>ESP32-S3 BLE 打印机桥接项目中，以下操作流程必然复现：</p>
+<ol>
+<li>打开蓝牙开关 → 扫描正常，设备列表填充</li>
+<li>选择设备点击”连接” → 连接超时失败 → 按钮恢复</li>
+<li><strong>关闭蓝牙再打开</strong> → MAC 列表全空，扫描彻底停止，再无新设备出现</li>
+</ol>
+<h2 id="根因分析"><a href="#根因分析" class="headerlink" title="根因分析"></a>根因分析</h2><p>一句话：<strong><code>ble_gap_connect()</code> 使用 <code>BLE_HS_FOREVER</code> 无超时连接，软件层 10 秒判定失败后未取消底层连接过程，NimBLE 协议栈被永久占用，后续所有 <code>ble_gap_disc()</code> 扫描请求均被拒绝。</strong></p>
+<h3 id="详细时序"><a href="#详细时序" class="headerlink" title="详细时序"></a>详细时序</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">① 点击&quot;连接&quot;</span><br><span class="line">   → ble_task 调用 ble_connect_device()</span><br><span class="line">   → ble_gap_connect(..., BLE_HS_FOREVER, ...)</span><br><span class="line">   → NimBLE 开始无限时长的连接尝试</span><br><span class="line"></span><br><span class="line">② 10 秒软件超时</span><br><span class="line">   → ble_task 里 connected = false</span><br><span class="line">   → 按钮恢复，但扫描未重启</span><br><span class="line">   → ble_scan_enabled 仍为 false</span><br><span class="line"></span><br><span class="line">③ 关闭蓝牙</span><br><span class="line">   → ble_stop_scan() 发现 ble_scan_enabled 已是 false，直接空返回</span><br><span class="line">   → 未向 NimBLE 发任何取消命令</span><br><span class="line">   → 底层连接尝试仍在继续</span><br><span class="line">   → ble_clear_device_list() 清空 UI 列表</span><br><span class="line"></span><br><span class="line">④ 再次打开蓝牙</span><br><span class="line">   → ble_start_scan() → ble_gap_disc()</span><br><span class="line">   → NimBLE 返回错误（BLE_HS_EBUSY）</span><br><span class="line">   → 扫描启动失败，设备列表永远为空</span><br></pre></td></tr></table></figure>
+
+<h3 id="三个关联-Bug"><a href="#三个关联-Bug" class="headerlink" title="三个关联 Bug"></a>三个关联 Bug</h3><table>
+<thead>
+<tr>
+<th>#</th>
+<th>位置</th>
+<th>问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>ble_task()</code> 连接超时分支</td>
+<td>未调用 <code>ble_start_scan()</code> 重启扫描</td>
+</tr>
+<tr>
+<td>2</td>
+<td>全局</td>
+<td>无任何地方调用 <code>ble_gap_conn_cancel()</code>，pending 连接泄漏</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>BLE_GAP_EVENT_CONNECT</code> 失败事件</td>
+<td>无恢复逻辑，纯打日志</td>
+</tr>
+</tbody></table>
+<h2 id="修复方案"><a href="#修复方案" class="headerlink" title="修复方案"></a>修复方案</h2><h3 id="1-ble-start-scan-增加防御性清理"><a href="#1-ble-start-scan-增加防御性清理" class="headerlink" title="1. ble_start_scan() 增加防御性清理"></a>1. <code>ble_start_scan()</code> 增加防御性清理</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">ble_start_scan</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">/* 防御性清理：取消可能残留的 connect 过程 */</span></span><br><span class="line">    ble_gap_conn_cancel();</span><br><span class="line">    vTaskDelay(pdMS_TO_TICKS(<span class="number">50</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ble_scan_enabled) &#123;</span><br><span class="line">        <span class="comment">// ... 原有 guard 逻辑</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-连接失败事件中恢复扫描"><a href="#2-连接失败事件中恢复扫描" class="headerlink" title="2. 连接失败事件中恢复扫描"></a>2. 连接失败事件中恢复扫描</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> BLE_GAP_EVENT_CONNECT:</span><br><span class="line">    <span class="keyword">if</span> (event-&gt;connect.status == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">// 成功...</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ESP_LOGE(TAG, <span class="string">&quot;连接打印机失败: %d&quot;</span>, event-&gt;connect.status);</span><br><span class="line">        <span class="keyword">if</span> (sys_status.bluetooth_open) &#123;</span><br><span class="line">            ble_start_scan();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-ble-task-连接超时后取消并重启扫描"><a href="#3-ble-task-连接超时后取消并重启扫描" class="headerlink" title="3. ble_task() 连接超时后取消并重启扫描"></a>3. <code>ble_task()</code> 连接超时后取消并重启扫描</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (connected) &#123;</span><br><span class="line">    <span class="comment">// 成功...</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    ble_reset_screen_button();</span><br><span class="line">    ble_gap_conn_cancel();          <span class="comment">// ★ 关键：释放 NimBLE GAP 资源</span></span><br><span class="line">    vTaskDelay(pdMS_TO_TICKS(<span class="number">100</span>));</span><br><span class="line">    <span class="keyword">if</span> (sys_status.bluetooth_open) &#123;</span><br><span class="line">        ble_start_scan();</span><br><span class="line">    &#125;</span><br><span class="line">    ESP_LOGI(TAG, <span class="string">&quot;连接超时，已取消并恢复扫描&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-关闭蓝牙时彻底清理"><a href="#4-关闭蓝牙时彻底清理" class="headerlink" title="4. 关闭蓝牙时彻底清理"></a>4. 关闭蓝牙时彻底清理</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">/* 取消 pending 连接 + 断开已建立的连接 */</span></span><br><span class="line">    ble_gap_conn_cancel();</span><br><span class="line">    vTaskDelay(pdMS_TO_TICKS(<span class="number">50</span>));</span><br><span class="line">    ble_disconnect();</span><br><span class="line">    ble_stop_scan();</span><br><span class="line">    vTaskDelay(pdMS_TO_TICKS(<span class="number">100</span>));</span><br><span class="line">    ble_clear_device_list();</span><br><span class="line">    ble_page_set_device_name(<span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-GAP-断连事件中直接重置-UI"><a href="#5-GAP-断连事件中直接重置-UI" class="headerlink" title="5. GAP 断连事件中直接重置 UI"></a>5. GAP 断连事件中直接重置 UI</h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">case</span> BLE_GAP_EVENT_DISCONNECT:</span><br><span class="line">    printer_conn_handle = BLE_HS_CONN_HANDLE_NONE;</span><br><span class="line">    printer_ready = <span class="literal">false</span>;</span><br><span class="line">    printer_attr_handle = <span class="number">0</span>;</span><br><span class="line">    ble_reset_screen_button();      <span class="comment">// ★ 替代 ble_task 的轮询检测</span></span><br><span class="line">    <span class="keyword">break</span>;</span><br></pre></td></tr></table></figure>
+
+<h2 id="代码重构：移除-bluetooth-connecting-冗余标志"><a href="#代码重构：移除-bluetooth-connecting-冗余标志" class="headerlink" title="代码重构：移除 bluetooth_connecting 冗余标志"></a>代码重构：移除 <code>bluetooth_connecting</code> 冗余标志</h2><p><code>bluetooth_connecting</code> 本质上是 <code>ble_is_connected() &amp;&amp; printer_ready</code> 的手动副本，完全冗余。涉及 5 个文件的清理：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>改动</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>data.h</code></td>
+<td>删除 <code>bool bluetooth_connecting</code> 字段</td>
+</tr>
+<tr>
+<td><code>hello_world_main.c</code></td>
+<td>删除初始化</td>
+</tr>
+<tr>
+<td><code>printer_scan.c</code></td>
+<td>删除所有赋值&#x2F;判断；心跳改为 <code>printer_ready &amp;&amp; ble_is_connected()</code>；断连检测移到 GAP 事件</td>
+</tr>
+<tr>
+<td><code>tjc_uart2.c</code></td>
+<td>按钮切换改为 <code>ble_is_connected()</code></td>
+</tr>
+<tr>
+<td><code>key.c</code></td>
+<td>导航限制改为 <code>ble_is_connected()</code></td>
+</tr>
+</tbody></table>
+<h2 id="遇到的编译问题"><a href="#遇到的编译问题" class="headerlink" title="遇到的编译问题"></a>遇到的编译问题</h2><ol>
+<li><strong>花括号不配对</strong> — 替换 <code>if(connected)</code> 块时新代码缺少关闭 <code>if(ble_connect_flag)</code> 外层的 <code>}</code></li>
+<li><strong>隐式声明</strong> — <code>ble_reset_screen_button()</code> 在 GAP 事件中被提前调用，需加前置声明；<code>ble_gap_conn_cancel()</code> 需 <code>#include &quot;host/ble_gap.h&quot;</code></li>
+<li><strong>缓冲区溢出</strong> — <code>sample_mode_name[20]</code> 装不下编码损坏后的中文字符串，改为 <code>[32]</code></li>
+</ol>
+<h2 id="关键认知"><a href="#关键认知" class="headerlink" title="关键认知"></a>关键认知</h2><ul>
+<li><code>ble_gap_disc_cancel()</code> 只能取消扫描，<strong>取消不了 <code>ble_gap_connect()</code> 发起的连接过程</strong>，必须用 <code>ble_gap_conn_cancel()</code></li>
+<li><code>ble_scan_enabled</code> 是软件维护的布尔量，与 NimBLE 协议栈真实状态不同步，不能作为唯一判断依据</li>
+<li>串口屏双态按钮的 <code>value=1/0</code> 是<strong>按下&#x2F;弹起</strong>信号而非<strong>连接&#x2F;断开</strong>语义，每次点击依次发 1 和 0，意图判断必须基于 <code>ble_is_connected()</code> 真实状态</li>
+</ul>
+<h2 id="架构要点"><a href="#架构要点" class="headerlink" title="架构要点"></a>架构要点</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">串口屏按钮 → UART2 解析 → 设置标志位 → ble_task 50ms 轮询 → 执行 BLE 操作</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>ble_connect_flag</code> &#x2F; <code>ble_disconnect_flag</code> 是 UART 线程到 BLE 线程的消息队列</li>
+<li>NimBLE GAP 操作不能跨线程直接调用，必须集中在 <code>ble_task</code> 一个线程</li>
+<li>决策信源唯一性原则：依据 MCU 的 <code>ble_is_connected()</code>（物理真相），不依赖屏幕维护的状态副本</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">龙空灵</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/05/14/esp32-nimble-ble-scan-freeze-fix/">http://example.com/2026/05/14/esp32-nimble-ble-scan-freeze-fix/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/ESP32/">ESP32</a><a class="post-meta__tags" href="/tags/BLE/">BLE</a><a class="post-meta__tags" href="/tags/NimBLE/">NimBLE</a><a class="post-meta__tags" href="/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a><a class="post-meta__tags" href="/tags/%E8%B0%83%E8%AF%95/">调试</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/05/13/esp32-ble-tech-stack/" title="ESP32-S3 BLE 双角色桥接系统技术栈全解析"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">ESP32-S3 BLE 双角色桥接系统技术栈全解析</div></div><div class="info-2"><div class="info-item-1">系统概览123456789┌──────────┐  BLE UART    ┌──────────────┐  BLE GATT    ┌──────────┐│  手机 App │ ◄──────────► │  ESP32-S3     │ ◄──────────► │ 热敏打印机 ││ (Central) │  Peripheral  │  (双角色桥接)  │   Central     │ (Peripheral) │└──────────┘              │              │              └──────────┘                          │  ┌────────┐  │                          │  │TJC串口屏│  │                          │  │ UART2  │  │                          │  └────────┘  │                          └──────────────┘  ES...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/13/esp32-ble-bridge-refactoring/" title="ESP32-S3 BLE 双角色蓝牙模块重构实战"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-13</div><div class="info-item-2">ESP32-S3 BLE 双角色蓝牙模块重构实战</div></div><div class="info-2"><div class="info-item-1">项目背景一个基于 ESP32-S3 的空气质量采样设备，搭载 TJC 串口屏作为人机交互界面。蓝牙模块承担双重角色：  BLE 外设（Peripheral）：通过 Nordic UART Service 与手机 App 通信 BLE 中心设备（Central）：连接蓝牙热敏打印机，打印检测记录  蓝牙模块的核心文件为 printer_scan.c（约 1000 行）和 printer_scan.h。  问题发现：标志位混乱项目运行中出现以下异常现象：  蓝牙关闭时仍能触发连接 —— 串口屏的 connecting 按钮在蓝牙关闭状态下仍可被物理按键触发 连接状态显示不同步 —— 屏幕显示”已连接”但实际连接尚未建立 MAC 设备列表间歇性空 —— 开启蓝牙后扫描正常，但设备列表不显示任何设备 标志位多源写入 —— 同一个连接状态标志被 UI 处理函数和 BLE 任务同时写入  原始标志位全景12345678&quot;蓝牙开关&quot; → sys_status.bluetooth_open ──┐              ble_switch_enabled ───────...</div></div></div></a><a class="pagination-related" href="/2026/05/13/esp32-ble-tech-stack/" title="ESP32-S3 BLE 双角色桥接系统技术栈全解析"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-13</div><div class="info-item-2">ESP32-S3 BLE 双角色桥接系统技术栈全解析</div></div><div class="info-2"><div class="info-item-1">系统概览123456789┌──────────┐  BLE UART    ┌──────────────┐  BLE GATT    ┌──────────┐│  手机 App │ ◄──────────► │  ESP32-S3     │ ◄──────────► │ 热敏打印机 ││ (Central) │  Peripheral  │  (双角色桥接)  │   Central     │ (Peripheral) │└──────────┘              │              │              └──────────┘                          │  ┌────────┐  │                          │  │TJC串口屏│  │                          │  │ UART2  │  │                          │  └────────┘  │                          └──────────────┘  ES...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">龙空灵</div><div class="author-info-description"></div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">20</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">9</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="toc-number">1.</span> <span class="toc-text">问题现象</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B9%E5%9B%A0%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">根因分析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%A6%E7%BB%86%E6%97%B6%E5%BA%8F"><span class="toc-number">2.1.</span> <span class="toc-text">详细时序</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89%E4%B8%AA%E5%85%B3%E8%81%94-Bug"><span class="toc-number">2.2.</span> <span class="toc-text">三个关联 Bug</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BF%AE%E5%A4%8D%E6%96%B9%E6%A1%88"><span class="toc-number">3.</span> <span class="toc-text">修复方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-ble-start-scan-%E5%A2%9E%E5%8A%A0%E9%98%B2%E5%BE%A1%E6%80%A7%E6%B8%85%E7%90%86"><span class="toc-number">3.1.</span> <span class="toc-text">1. ble_start_scan() 增加防御性清理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%BF%9E%E6%8E%A5%E5%A4%B1%E8%B4%A5%E4%BA%8B%E4%BB%B6%E4%B8%AD%E6%81%A2%E5%A4%8D%E6%89%AB%E6%8F%8F"><span class="toc-number">3.2.</span> <span class="toc-text">2. 连接失败事件中恢复扫描</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-ble-task-%E8%BF%9E%E6%8E%A5%E8%B6%85%E6%97%B6%E5%90%8E%E5%8F%96%E6%B6%88%E5%B9%B6%E9%87%8D%E5%90%AF%E6%89%AB%E6%8F%8F"><span class="toc-number">3.3.</span> <span class="toc-text">3. ble_task() 连接超时后取消并重启扫描</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E5%85%B3%E9%97%AD%E8%93%9D%E7%89%99%E6%97%B6%E5%BD%BB%E5%BA%95%E6%B8%85%E7%90%86"><span class="toc-number">3.4.</span> <span class="toc-text">4. 关闭蓝牙时彻底清理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-GAP-%E6%96%AD%E8%BF%9E%E4%BA%8B%E4%BB%B6%E4%B8%AD%E7%9B%B4%E6%8E%A5%E9%87%8D%E7%BD%AE-UI"><span class="toc-number">3.5.</span> <span class="toc-text">5. GAP 断连事件中直接重置 UI</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E9%87%8D%E6%9E%84%EF%BC%9A%E7%A7%BB%E9%99%A4-bluetooth-connecting-%E5%86%97%E4%BD%99%E6%A0%87%E5%BF%97"><span class="toc-number">4.</span> <span class="toc-text">代码重构：移除 bluetooth_connecting 冗余标志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E7%BC%96%E8%AF%91%E9%97%AE%E9%A2%98"><span class="toc-number">5.</span> <span class="toc-text">遇到的编译问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E8%AE%A4%E7%9F%A5"><span class="toc-number">6.</span> <span class="toc-text">关键认知</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E8%A6%81%E7%82%B9"><span class="toc-number">7.</span> <span class="toc-text">架构要点</span></a></li></ol></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 龙空灵</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"></div><canvas id="universe"></canvas><script defer src="/js/universe.js"></script><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="30" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_categories_card_injector_config(){
+    // 检查容器是否存在
+    var parent_div_git = document.getElementById('recent-posts');
+    // 如果容器不存在，则动态创建
+    if (!parent_div_git) {
+      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
+      // 创建新容器（默认插入到页面主体顶部）
+      parent_div_git = document.createElement('div');
+      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
+      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
+    }
+    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/">项目总结</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr">JAVA 后端</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/categories/学习记录/">学习记录</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr">玩转Win10</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/categories/AI/">AI</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">长篇小说连载</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/categories/Markdown/">Markdown</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">个人日记</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/Java后端/">Java后端</a><span class="categoryBar-list-count">6</span><span class="categoryBar-list-descr">诗词歌赋</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/">RAG</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">杂谈教程</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/计算机网络/">计算机网络</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/后端开发/">后端开发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/嵌入式开发/">嵌入式开发</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+    console.log('已挂载 butterfly_categories_card');
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+  }
+  // 路径匹配逻辑（使用 startsWith）
+  if (location.pathname.startsWith('/categories/,/tags/,/archives/,/') || '/categories/,/tags/,/archives/,/' === 'all') {
+    butterfly_categories_card_injector_config();
+  }
+  </script><div class="js-pjax"><script async="async">var arr = document.getElementsByClassName('recent-post-item');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '1s');
+    arr[i].setAttribute('data-wow-delay', '0s');
+    arr[i].setAttribute('data-wow-offset', '100');
+    arr[i].setAttribute('data-wow-iteration', '1');
+  }</script><script async="async">var arr = document.getElementsByClassName('card-widget');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '');
+    arr[i].setAttribute('data-wow-delay', '');
+    arr[i].setAttribute('data-wow-offset', '');
+    arr[i].setAttribute('data-wow-iteration', '');
+  }</script></div><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow.min.js"></script><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow_init.js"></script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>

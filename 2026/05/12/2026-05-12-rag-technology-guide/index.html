@@ -1,0 +1,758 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>RAG 技术全解析——从原理到实战，打造懂你的知识检索系统 | LKL-ZREO</title><meta name="author" content="龙空灵"><meta name="copyright" content="龙空灵"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="ffffff"><meta name="description" content="深入浅出讲解 RAG（检索增强生成）的完整技术栈：文档切割、向量嵌入、混合检索、HyDE、Advanced RAG、RAGAS 评估、ONNX 模型部署，参考 runoob 教程补充实战细节。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RAG 技术全解析——从原理到实战，打造懂你的知识检索系统">
+<meta property="og:url" content="http://example.com/2026/05/12/2026-05-12-rag-technology-guide/index.html">
+<meta property="og:site_name" content="LKL-ZREO">
+<meta property="og:description" content="深入浅出讲解 RAG（检索增强生成）的完整技术栈：文档切割、向量嵌入、混合检索、HyDE、Advanced RAG、RAGAS 评估、ONNX 模型部署，参考 runoob 教程补充实战细节。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png">
+<meta property="article:published_time" content="2026-05-12T11:30:00.000Z">
+<meta property="article:modified_time" content="2026-05-12T11:55:57.437Z">
+<meta property="article:author" content="龙空灵">
+<meta property="article:tag" content="Embedding">
+<meta property="article:tag" content="ONNX">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="RRF">
+<meta property="article:tag" content="向量检索">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "RAG 技术全解析——从原理到实战，打造懂你的知识检索系统",
+  "url": "http://example.com/2026/05/12/2026-05-12-rag-technology-guide/",
+  "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png",
+  "datePublished": "2026-05-12T11:30:00.000Z",
+  "dateModified": "2026-05-12T11:55:57.437Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "龙空灵",
+      "url": "http://example.com"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/images/favicon.png"><link rel="canonical" href="http://example.com/2026/05/12/2026-05-12-rag-technology-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', 'ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          const hour = new Date().getHours()
+          const isNight = hour <= 6 || hour >= 18
+          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
+          else theme === 'light' ? activateLightMode() : activateDarkMode()
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: {"defaultEncoding":2,"translateDelay":0,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"简"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: true,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-right"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'RAG 技术全解析——从原理到实战，打造懂你的知识检索系统',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><link rel="stylesheet" href="/css/universe.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/animate.min.css" media="print" onload="this.media='screen'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">20</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">9</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">RAG 技术全解析——从原理到实战，打造懂你的知识检索系统</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">RAG 技术全解析——从原理到实战，打造懂你的知识检索系统</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-12T11:30:00.000Z" title="发表于 2026-05-12 19:30:00">2026-05-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-12T11:55:57.437Z" title="更新于 2026-05-12 19:55:57">2026-05-12</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI/">AI</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI/RAG/">RAG</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI/RAG/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>16分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-05-12 19:55:57&quot;}" hidden></div><h2 id="开篇：大模型为什么需要-RAG？"><a href="#开篇：大模型为什么需要-RAG？" class="headerlink" title="开篇：大模型为什么需要 RAG？"></a>开篇：大模型为什么需要 RAG？</h2><p>你问 ChatGPT “计算机一班有多少人”，它只能瞎编。</p>
+<p>不是因为它不够聪明，而是因为它<strong>没见过你的数据</strong>。大模型的训练数据截止于某个时间点，对私有文档、企业内部数据、个人笔记一无所知。</p>
+<p><strong>RAG（Retrieval-Augmented Generation，检索增强生成）</strong> 就是解决这个问题的标准方案。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">传统方式:                          RAG 方式:</span><br><span class="line">用户提问                          用户提问</span><br><span class="line">  ↓                                ↓</span><br><span class="line">LLM 直接回答                    ① 先检索知识库</span><br><span class="line">（可能胡编）                      ↓</span><br><span class="line">                                ② 找到相关文档片段</span><br><span class="line">                                  ↓</span><br><span class="line">                                ③ 把片段 + 问题一起给 LLM</span><br><span class="line">                                  ↓</span><br><span class="line">                                LLM 基于真实数据回答 ✅</span><br></pre></td></tr></table></figure>
+
+<p>核心思想：<strong>让 LLM 带着参考答案作答，而不是凭空想象。</strong></p>
+<hr>
+<h2 id="一、RAG-核心流程"><a href="#一、RAG-核心流程" class="headerlink" title="一、RAG 核心流程"></a>一、RAG 核心流程</h2><p>一个完整的 RAG 系统分两个阶段：</p>
+<h3 id="阶段一：离线入库（Indexing）"><a href="#阶段一：离线入库（Indexing）" class="headerlink" title="阶段一：离线入库（Indexing）"></a>阶段一：离线入库（Indexing）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">原始文档（Word/PDF/TXT）</span><br><span class="line">  ↓ ① 文档解析</span><br><span class="line">纯文本</span><br><span class="line">  ↓ ② 智能切割</span><br><span class="line">N 个 Chunk（文本块）</span><br><span class="line">  ↓ ③ 向量嵌入（Embedding）</span><br><span class="line">N 个 向量（float 数组）</span><br><span class="line">  ↓ ④ 存入向量数据库</span><br><span class="line">pgvector / Milvus / Pinecone</span><br></pre></td></tr></table></figure>
+
+<h3 id="阶段二：在线查询（Querying）"><a href="#阶段二：在线查询（Querying）" class="headerlink" title="阶段二：在线查询（Querying）"></a>阶段二：在线查询（Querying）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">用户提问</span><br><span class="line">  ↓ ① 问题向量化</span><br><span class="line">查询向量</span><br><span class="line">  ↓ ② 向量检索 + 关键词检索</span><br><span class="line">Top-K 个相关 Chunk</span><br><span class="line">  ↓ ③ 组装增强 Prompt</span><br><span class="line">带上下文的完整提问</span><br><span class="line">  ↓ ④ 发送给 LLM</span><br><span class="line">基于真实数据的回答</span><br></pre></td></tr></table></figure>
+
+<p><strong>入库慢无所谓，查询一定要快。</strong> 入库通常走异步任务（<code>@Async</code>），查询是同步的，毫秒级响应。</p>
+<hr>
+<h2 id="二、文档切割——Chunk-策略"><a href="#二、文档切割——Chunk-策略" class="headerlink" title="二、文档切割——Chunk 策略"></a>二、文档切割——Chunk 策略</h2><h3 id="为什么切割？"><a href="#为什么切割？" class="headerlink" title="为什么切割？"></a>为什么切割？</h3><ol>
+<li><strong>上下文窗口有限</strong>——LLM 一次只能看几千字，整个文档塞不下</li>
+<li><strong>检索精度</strong>——小块更容易精准命中，大块噪音多</li>
+<li><strong>Token 成本</strong>——多余的无关内容都是钱</li>
+</ol>
+<h3 id="切割策略"><a href="#切割策略" class="headerlink" title="切割策略"></a>切割策略</h3><table>
+<thead>
+<tr>
+<th>策略</th>
+<th>做法</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>固定长度</strong></td>
+<td>每 500 字切一块</td>
+<td>通用场景</td>
+</tr>
+<tr>
+<td><strong>语义切割</strong></td>
+<td>按段落&#x2F;标题&#x2F;标点分割</td>
+<td>结构清晰的文档</td>
+</tr>
+<tr>
+<td><strong>滑动窗口</strong></td>
+<td>块间重叠 10-20%，防止信息断裂</td>
+<td>长文档、小说</td>
+</tr>
+<tr>
+<td><strong>层级切割</strong></td>
+<td>保留标题-段落层级关系</td>
+<td>知识库、手册</td>
+</tr>
+<tr>
+<td><strong>父子检索 (Small-to-Big)</strong></td>
+<td>小块检索 + 大块返回</td>
+<td>全面覆盖（推荐）</td>
+</tr>
+</tbody></table>
+<h3 id="进阶技巧：父子文档检索（Small-to-Big）"><a href="#进阶技巧：父子文档检索（Small-to-Big）" class="headerlink" title="进阶技巧：父子文档检索（Small-to-Big）"></a>进阶技巧：父子文档检索（Small-to-Big）</h3><p>这是目前 RAG 公认的最佳切分实践之一：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">原始文档</span><br><span class="line">  ↓ 切成大块（父文档，1000~2000 tokens）</span><br><span class="line">父块 A        父块 B        父块 C</span><br><span class="line">  ↓ 再切成小块（子文档，200~500 tokens）</span><br><span class="line">子块A1 A2 A3  子块B1 B2 B3  子块C1 C2 C3</span><br><span class="line"></span><br><span class="line">检索阶段: 用&quot;小块&quot;做向量匹配 → 命中率高、噪音少</span><br><span class="line">返回阶段: 返回小块对应的&quot;父块&quot; → LLM 看到的上下文完整</span><br></pre></td></tr></table></figure>
+
+<p><strong>小块负责检索精度，大块负责上下文完整度。</strong></p>
+<h3 id="切分实战"><a href="#切分实战" class="headerlink" title="切分实战"></a>切分实战</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain.text_splitter <span class="keyword">import</span> RecursiveCharacterTextSplitter</span><br><span class="line"></span><br><span class="line">splitter = RecursiveCharacterTextSplitter(</span><br><span class="line">    chunk_size=<span class="number">512</span>,        <span class="comment"># 每块最大 token 数</span></span><br><span class="line">    chunk_overlap=<span class="number">50</span>,      <span class="comment"># 相邻块的重叠 token 数，防止信息在边界处丢失</span></span><br><span class="line">    separators=[<span class="string">&quot;\n\n&quot;</span>, <span class="string">&quot;\n&quot;</span>, <span class="string">&quot;。&quot;</span>, <span class="string">&quot;.&quot;</span>, <span class="string">&quot; &quot;</span>, <span class="string">&quot;&quot;</span>]  <span class="comment"># 优先按段落、句子切分</span></span><br><span class="line">)</span><br><span class="line">chunks = splitter.split_text(document_text)</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>经验：</strong> 小文档（&lt;5000 字）用固定长度即可；大文档务必用语义切割 + 滑动窗口 + 父子检索，否则检索时大概率丢上下文。</p>
+</blockquote>
+<hr>
+<h2 id="三、向量检索基础"><a href="#三、向量检索基础" class="headerlink" title="三、向量检索基础"></a>三、向量检索基础</h2><h3 id="什么是文本向量？"><a href="#什么是文本向量？" class="headerlink" title="什么是文本向量？"></a>什么是文本向量？</h3><p>把一段文字变成一个<strong>固定长度的数字数组</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&quot;计算机一班有多少人&quot; → [0.03, -0.12, 0.45, 0.08, ..., -0.11]</span><br><span class="line">                          ↑      ↑      ↑      ↑           ↑</span><br><span class="line">                       第0维  第1维  第2维  第3维    ...    第511维</span><br></pre></td></tr></table></figure>
+
+<p>这个 512 维的数组编码了文本的<strong>语义特征</strong>。</p>
+<h3 id="向量索引算法：ANN"><a href="#向量索引算法：ANN" class="headerlink" title="向量索引算法：ANN"></a>向量索引算法：ANN</h3><p>数据量到百万级后，暴力遍历比对太慢。向量数据库用<strong>近似最近邻（ANN）</strong> 算法加速：</p>
+<table>
+<thead>
+<tr>
+<th>索引类型</th>
+<th>原理</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Flat（暴力）</strong></td>
+<td>逐一比对</td>
+<td>100% 精确，极慢</td>
+<td>&lt;10 万，精度优先</td>
+</tr>
+<tr>
+<td><strong>IVF_Flat</strong></td>
+<td>K-Means 聚类后搜簇</td>
+<td>速度快，精度略降</td>
+<td>中大规模</td>
+</tr>
+<tr>
+<td><strong>IVF_PQ</strong></td>
+<td>聚类 + 乘积量化压缩</td>
+<td>极省内存</td>
+<td>超大规模，内存受限</td>
+</tr>
+<tr>
+<td><strong>HNSW</strong></td>
+<td>多层跳跃图网络</td>
+<td>速度最快，精度高（推荐）</td>
+<td>最常用首选</td>
+</tr>
+<tr>
+<td><strong>ScaNN</strong></td>
+<td>Google 出品</td>
+<td>优化吞吐量</td>
+<td>高并发生产环境</td>
+</tr>
+</tbody></table>
+<p><strong>HNSW 是目前最主流的 ANN 算法</strong>——它构建多层图结构（顶层稀疏、底层密集），查询时像”跳格游戏”一样逐层下探，大幅减少需要比较的节点数，时间复杂度近似 O(log n)。</p>
+<h3 id="三种相似度计算方法"><a href="#三种相似度计算方法" class="headerlink" title="三种相似度计算方法"></a>三种相似度计算方法</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">cosine_similarity</span>(<span class="params">a, b</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;余弦相似度：衡量方向，最常用于文本&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">return</span> np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">euclidean_distance</span>(<span class="params">a, b</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;欧氏距离：衡量绝对位置差异&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">return</span> np.linalg.norm(a - b)</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">dot_product</span>(<span class="params">a, b</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;点积：结合方向和长度，推荐系统常用&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">return</span> np.dot(a, b)</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>结果范围</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>余弦相似度</td>
+<td>-1 ~ 1</td>
+<td>文本语义搜索（最常用）</td>
+</tr>
+<tr>
+<td>欧氏距离</td>
+<td>0 ~ ∞</td>
+<td>图像检索、地理空间</td>
+</tr>
+<tr>
+<td>点积</td>
+<td>-∞ ~ ∞</td>
+<td>推荐系统（归一化后等价余弦）</td>
+</tr>
+</tbody></table>
+<h3 id="向量数据库选型决策树"><a href="#向量数据库选型决策树" class="headerlink" title="向量数据库选型决策树"></a>向量数据库选型决策树</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">你的情况是什么？</span><br><span class="line">│</span><br><span class="line">├── 已有 PostgreSQL，且数据量 &lt; 500 万</span><br><span class="line">│   └──&gt; pgvector，无缝集成，零额外运维</span><br><span class="line">│</span><br><span class="line">├── 做 AI/LLM 应用原型，快速验证</span><br><span class="line">│   └──&gt; Chroma，几行代码搞定</span><br><span class="line">│</span><br><span class="line">├── 需要生产级部署，性能优先，500 万 ~ 1 亿</span><br><span class="line">│   └──&gt; Qdrant，Rust 实现，性能强</span><br><span class="line">│</span><br><span class="line">├── 超大规模（&gt; 1 亿），有 K8s 运维能力</span><br><span class="line">│   └──&gt; Milvus，分布式，功能最全</span><br><span class="line">│</span><br><span class="line">└── 团队没有运维能力，愿意付费</span><br><span class="line">    └──&gt; Pinecone / Zilliz Cloud，开箱即用</span><br></pre></td></tr></table></figure>
+
+<h3 id="Chroma-快速上手"><a href="#Chroma-快速上手" class="headerlink" title="Chroma 快速上手"></a>Chroma 快速上手</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> chromadb</span><br><span class="line"><span class="keyword">from</span> chromadb.utils <span class="keyword">import</span> embedding_functions</span><br><span class="line"></span><br><span class="line">client = chromadb.PersistentClient(path=<span class="string">&quot;./my_vector_db&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用 OpenAI 嵌入模型（也可换成本地模型）</span></span><br><span class="line">openai_ef = embedding_functions.OpenAIEmbeddingFunction(</span><br><span class="line">    api_key=<span class="string">&quot;your-api-key&quot;</span>,</span><br><span class="line">    model_name=<span class="string">&quot;text-embedding-3-small&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">collection = client.get_or_create_collection(</span><br><span class="line">    name=<span class="string">&quot;my_documents&quot;</span>,</span><br><span class="line">    embedding_function=openai_ef,</span><br><span class="line">    metadata=&#123;<span class="string">&quot;hnsw:space&quot;</span>: <span class="string">&quot;cosine&quot;</span>&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 插入文档 → Chroma 自动向量化</span></span><br><span class="line">collection.add(</span><br><span class="line">    documents=[<span class="string">&quot;Python 是一种面向对象的编程语言&quot;</span>, <span class="string">&quot;机器学习是 AI 的子领域&quot;</span>],</span><br><span class="line">    ids=[<span class="string">&quot;doc_0&quot;</span>, <span class="string">&quot;doc_1&quot;</span>]</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 语义搜索</span></span><br><span class="line">results = collection.query(query_texts=[<span class="string">&quot;如何用 Python 做 AI&quot;</span>], n_results=<span class="number">3</span>)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、Embedding-模型深入"><a href="#四、Embedding-模型深入" class="headerlink" title="四、Embedding 模型深入"></a>四、Embedding 模型深入</h2><h3 id="从词袋到-Transformer"><a href="#从词袋到-Transformer" class="headerlink" title="从词袋到 Transformer"></a>从词袋到 Transformer</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">第一代：词袋模型（BoW / TF-IDF）</span><br><span class="line">&quot;我爱北京天安门&quot; → &#123;&quot;我&quot;:1, &quot;爱&quot;:1, &quot;北京&quot;:1, &quot;天安门&quot;:1&#125;</span><br><span class="line">  ❌ 没有语序信息，不擅长近义词</span><br><span class="line"></span><br><span class="line">第二代：Word2Vec / GloVe</span><br><span class="line">每个词一个固定向量，句子 = 词向量平均</span><br><span class="line">  ⚠️ 上下文无关，&quot;苹果&quot;（水果）和&quot;苹果&quot;（公司）向量一样</span><br><span class="line"></span><br><span class="line">第三代：BERT / Sentence-BERT</span><br><span class="line">整个句子过 Transformer 网络，输出句子级向量</span><br><span class="line">  ✅ 理解上下文，理解词序，理解同义词</span><br><span class="line"></span><br><span class="line">第四代：BGE / E5 / Jina</span><br><span class="line">专门为检索优化的嵌入模型，加入指令微调</span><br><span class="line">  ✅ 区分 query 和 document，检索精度再提升</span><br></pre></td></tr></table></figure>
+
+<h3 id="主流模型对比"><a href="#主流模型对比" class="headerlink" title="主流模型对比"></a>主流模型对比</h3><table>
+<thead>
+<tr>
+<th>模型</th>
+<th>维度</th>
+<th>大小</th>
+<th>中文效果</th>
+<th>推理速度</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>bge-small-zh-v1.5</strong></td>
+<td>512</td>
+<td>90MB</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>快</td>
+<td>中文 RAG 首选</td>
+</tr>
+<tr>
+<td>bge-large-zh-v1.5</td>
+<td>1024</td>
+<td>1.3GB</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>中</td>
+<td>高精度中文</td>
+</tr>
+<tr>
+<td>bge-m3</td>
+<td>1024</td>
+<td>2.2GB</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>中</td>
+<td>中英文多语言</td>
+</tr>
+<tr>
+<td>text-embedding-3-small</td>
+<td>1536</td>
+<td>API</td>
+<td>⭐⭐⭐⭐</td>
+<td>API</td>
+<td>多语言，性价比高</td>
+</tr>
+<tr>
+<td>text-embedding-3-large</td>
+<td>3072</td>
+<td>API</td>
+<td>⭐⭐⭐⭐⭐</td>
+<td>API</td>
+<td>精度最高，成本较高</td>
+</tr>
+<tr>
+<td>paraphrase-multilingual-MiniLM</td>
+<td>384</td>
+<td>120MB</td>
+<td>⭐⭐⭐</td>
+<td>最快</td>
+<td>50+语言通用</td>
+</tr>
+<tr>
+<td>all-MiniLM-L6-v2</td>
+<td>384</td>
+<td>90MB</td>
+<td>⭐⭐</td>
+<td>最快</td>
+<td>纯英文轻量</td>
+</tr>
+</tbody></table>
+<h3 id="嵌入模型的选择原则"><a href="#嵌入模型的选择原则" class="headerlink" title="嵌入模型的选择原则"></a>嵌入模型的选择原则</h3><table>
+<thead>
+<tr>
+<th>需求</th>
+<th>推荐模型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>中英文文本（高质量）</td>
+<td>OpenAI text-embedding-3-small</td>
+</tr>
+<tr>
+<td>中文文本（本地离线）</td>
+<td>BAAI&#x2F;bge-large-zh-v1.5</td>
+</tr>
+<tr>
+<td>中文文本（轻量离线）</td>
+<td>BAAI&#x2F;bge-small-zh-v1.5</td>
+</tr>
+<tr>
+<td>多语言通用</td>
+<td>paraphrase-multilingual-MiniLM-L12-v2</td>
+</tr>
+<tr>
+<td>图文多模态</td>
+<td>OpenAI CLIP 系列</td>
+</tr>
+</tbody></table>
+<h3 id="BGE-模型的特殊设计：指令感知"><a href="#BGE-模型的特殊设计：指令感知" class="headerlink" title="BGE 模型的特殊设计：指令感知"></a>BGE 模型的特殊设计：指令感知</h3><p>BGE 系列在训练时用了<strong>对比学习 + 指令微调</strong>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 训练时：query 带指令，document 不带</span></span><br><span class="line">query  = <span class="string">&quot;为这个句子生成表示以用于检索相关文章：&quot;</span> + <span class="string">&quot;计算机一班有多少人&quot;</span></span><br><span class="line">doc    = <span class="string">&quot;学生总数: 2人，作业总数: 2份&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 训练目标：拉近 query 和正确答案的向量，拉开和错误答案的向量</span></span><br><span class="line">loss = contrastive_loss(query_embedding, pos_doc_embedding, neg_doc_embeddings)</span><br></pre></td></tr></table></figure>
+
+<p>所以使用时也要严格区分：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ Query：加指令前缀</span></span><br><span class="line">embeddingService.embedQuery(<span class="string">&quot;计算机一班有多少人&quot;</span>);</span><br><span class="line"><span class="comment">// 实际传入: &quot;为这个句子生成表示以用于检索相关文章：计算机一班有多少人&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ Document：不加前缀</span></span><br><span class="line">embeddingService.embedDocument(<span class="string">&quot;学生总数: 2人&quot;</span>);</span><br><span class="line"><span class="comment">// 直接传入原文本</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、混合检索——为什么单路不够？"><a href="#五、混合检索——为什么单路不够？" class="headerlink" title="五、混合检索——为什么单路不够？"></a>五、混合检索——为什么单路不够？</h2><h3 id="语义向量的盲区"><a href="#语义向量的盲区" class="headerlink" title="语义向量的盲区"></a>语义向量的盲区</h3><table>
+<thead>
+<tr>
+<th>盲区类型</th>
+<th>例子</th>
+<th>为什么失效</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>数字&#x2F;代码</strong></td>
+<td><code>i%5==0</code>, <code>int a[5]</code></td>
+<td>模型没见过这些 token 组合</td>
+</tr>
+<tr>
+<td><strong>缩写</strong></td>
+<td>“CS2”, “JDK”</td>
+<td>低频 token，模型理解弱</td>
+</tr>
+<tr>
+<td><strong>精确匹配</strong></td>
+<td>人名、地名、产品型号</td>
+<td>语义相近但不相等</td>
+</tr>
+</tbody></table>
+<h3 id="关键词检索的盲区"><a href="#关键词检索的盲区" class="headerlink" title="关键词检索的盲区"></a>关键词检索的盲区</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">用户: &quot;怎么交换两个变量的值？&quot;</span><br><span class="line">文档: &quot;t=x；x=y；y=t；&quot;</span><br><span class="line"></span><br><span class="line">关键词检索: ❌ 没命中（没有&quot;交换&quot;、&quot;变量&quot;这些词）</span><br><span class="line">语义检索:   ✅ 理解语义 → 命中</span><br></pre></td></tr></table></figure>
+
+<h3 id="混合检索-取长补短"><a href="#混合检索-取长补短" class="headerlink" title="混合检索 &#x3D; 取长补短"></a>混合检索 &#x3D; 取长补短</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">查询</span><br><span class="line">  ├── 语义路：理解&quot;交换变量&quot;≈&quot;变量互换&quot;≈&quot;swap values&quot;</span><br><span class="line">  │       └── 结果: chunk_A, chunk_B, chunk_C (按余弦距离排序)</span><br><span class="line">  │</span><br><span class="line">  ├── 关键词路：精确命中 &quot;int a[5]&quot;, &quot;i%5==0&quot;</span><br><span class="line">  │       └── 结果: chunk_D, chunk_C, chunk_E (按关键词命中数排序)</span><br><span class="line">  │</span><br><span class="line">  └── RRF 融合</span><br><span class="line">          └── 最终: chunk_C(双路命中🥇), chunk_A, chunk_D, ...</span><br></pre></td></tr></table></figure>
+
+<h3 id="RRF（Reciprocal-Rank-Fusion）原理"><a href="#RRF（Reciprocal-Rank-Fusion）原理" class="headerlink" title="RRF（Reciprocal Rank Fusion）原理"></a>RRF（Reciprocal Rank Fusion）原理</h3><p>核心公式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">RRF_score(chunk) = Σ ─────────</span><br><span class="line">                   k + rank_i</span><br><span class="line"></span><br><span class="line">k = 60  (标准常数，Elasticsearch / Weaviate 都在用)</span><br><span class="line">rank_i = 该 chunk 在第 i 路检索中的排名</span><br></pre></td></tr></table></figure>
+
+<p>为什么用排名而不是原始分数？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">语义分数: 0.85 (chunk_A), 0.12 (chunk_B)</span><br><span class="line">关键词分数: 5 (chunk_C), 1 (chunk_A)</span><br><span class="line"></span><br><span class="line">直接相加: 0.85+1 = 1.85 vs 0.12+?  = 无意义！</span><br><span class="line">排名融合: rank=1 和 rank=5 → 1/61 + 1/65 = 0.0318  ✅ 量纲统一</span><br></pre></td></tr></table></figure>
+
+<h3 id="实现代码"><a href="#实现代码" class="headerlink" title="实现代码"></a>实现代码</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// RRF 融合 - 核心逻辑</span></span><br><span class="line">Set&lt;String&gt; allChunkIds = <span class="keyword">new</span> <span class="title class_">LinkedHashSet</span>&lt;&gt;();</span><br><span class="line">allChunkIds.addAll(semanticRanks.keySet());</span><br><span class="line">allChunkIds.addAll(keywordRanks.keySet());</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> allChunkIds.stream()</span><br><span class="line">    .map(id -&gt; &#123;</span><br><span class="line">        <span class="type">double</span> <span class="variable">rrfScore</span> <span class="operator">=</span> <span class="number">0.0</span>;</span><br><span class="line">        <span class="type">Double</span> <span class="variable">semRank</span> <span class="operator">=</span> semanticRanks.get(id);</span><br><span class="line">        <span class="type">Double</span> <span class="variable">kwRank</span> <span class="operator">=</span> keywordRanks.get(id);</span><br><span class="line">        <span class="keyword">if</span> (semRank != <span class="literal">null</span>) rrfScore += <span class="number">1.0</span> / (<span class="number">60</span> + semRank);</span><br><span class="line">        <span class="keyword">if</span> (kwRank != <span class="literal">null</span>) rrfScore += <span class="number">1.0</span> / (<span class="number">60</span> + kwRank);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">RrfResult</span>(id, rrfScore);</span><br><span class="line">    &#125;)</span><br><span class="line">    .sorted((a, b) -&gt; Double.compare(b.rrfScore, a.rrfScore))</span><br><span class="line">    .limit(topK)</span><br><span class="line">    .toList();</span><br></pre></td></tr></table></figure>
+
+<p>Elasticsearch 8.x 内置了 RRF，开箱即用：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;retriever&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;rrf&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;retrievers&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;standard&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;query&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;match&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;...&quot;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">        <span class="punctuation">&#123;</span> <span class="attr">&quot;knn&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;field&quot;</span><span class="punctuation">:</span> <span class="string">&quot;embedding&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;query_vector&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span>...<span class="punctuation">]</span><span class="punctuation">,</span> <span class="attr">&quot;k&quot;</span><span class="punctuation">:</span> <span class="number">20</span> <span class="punctuation">&#125;</span> <span class="punctuation">&#125;</span></span><br><span class="line">      <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;rank_window_size&quot;</span><span class="punctuation">:</span> <span class="number">20</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;rank_constant&quot;</span><span class="punctuation">:</span> <span class="number">60</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="六、Advanced-RAG-——-进阶架构"><a href="#六、Advanced-RAG-——-进阶架构" class="headerlink" title="六、Advanced RAG —— 进阶架构"></a>六、Advanced RAG —— 进阶架构</h2><p>基础架构（Naive RAG）常面临检索不准确、冗余信息多等问题。Advanced RAG 通过 <strong>预检索优化 → 检索融合 → 后检索优化</strong> 三段式架构予以解决。</p>
+<h3 id="1-预检索：查询优化"><a href="#1-预检索：查询优化" class="headerlink" title="1. 预检索：查询优化"></a>1. 预检索：查询优化</h3><h4 id="查询改写（Query-Rewriting）"><a href="#查询改写（Query-Rewriting）" class="headerlink" title="查询改写（Query Rewriting）"></a>查询改写（Query Rewriting）</h4><p>用户的原始问题往往表达不够精确，用 LLM 改写为规范化的检索词：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">原始提问: &quot;那个一班的作业怎么样了&quot;</span><br><span class="line">  ↓ LLM 改写</span><br><span class="line">改写后:   &quot;计算机一班 学生作业 完成情况 成绩统计&quot;</span><br></pre></td></tr></table></figure>
+
+<p>改写后的查询包含更多精确的关键词，检索命中率大幅提升。</p>
+<h4 id="HyDE（假设文档嵌入）"><a href="#HyDE（假设文档嵌入）" class="headerlink" title="HyDE（假设文档嵌入）"></a>HyDE（假设文档嵌入）</h4><p>这是目前最巧妙的预检索技术之一：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">用户提问: &quot;计算机一班有多少人&quot;</span><br><span class="line">  ↓ Step 1: LLM 盲猜一个答案（不需要是真的）</span><br><span class="line">假设答案: &quot;计算机一班共有30名学生，其中男生15人，女生15人&quot;</span><br><span class="line">  ↓ Step 2: 用假设答案生成向量去检索（而不是用原问题）</span><br><span class="line">向量搜索 → 召回真实文档</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么有效？</strong> LLM 生成的假设答案往往比原问题包含更多专业术语和完整的句式结构，与知识库中真实文档的向量分布更接近，检索命中率显著提升。</p>
+<h3 id="2-检索融合：混合检索"><a href="#2-检索融合：混合检索" class="headerlink" title="2. 检索融合：混合检索"></a>2. 检索融合：混合检索</h3><p>已在第五章详述。将语义检索 + 关键词检索的结果通过 RRF 融合，在专有名词、代码片段等场景尤其重要。</p>
+<h3 id="3-后检索：重排序（Reranking）"><a href="#3-后检索：重排序（Reranking）" class="headerlink" title="3. 后检索：重排序（Reranking）"></a>3. 后检索：重排序（Reranking）</h3><p>向量检索虽然快，但打分不够精确。重排序引入 <strong>Cross-Encoder</strong> 模型进行精排：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">粗排阶段（快）:</span><br><span class="line">  bge-small-zh → Top-50 候选</span><br><span class="line"></span><br><span class="line">精排阶段（精准）:</span><br><span class="line">  bge-reranker-v2-m3 → 50 个候选重新交叉打分 → Top-5</span><br></pre></td></tr></table></figure>
+
+<p>Cross-Encoder 将「问题」和「文档」<strong>成对输入模型进行联合推理打分</strong>，精度远高于向量距离，但运算量大，只负责精选 Top-N。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> sentence_transformers <span class="keyword">import</span> CrossEncoder</span><br><span class="line"></span><br><span class="line">reranker = CrossEncoder(<span class="string">&quot;BAAI/bge-reranker-v2-m3&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 粗排：向量检索极速召回 Top-50</span></span><br><span class="line">candidates = vector_store.similarity_search(query, k=<span class="number">50</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 精排：构建 [问题, 文档] 对进行精确打分</span></span><br><span class="line">pairs = [[query, doc.page_content] <span class="keyword">for</span> doc <span class="keyword">in</span> candidates]</span><br><span class="line">scores = reranker.predict(pairs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 筛选最终传入 LLM 的 Top-5</span></span><br><span class="line">ranked_docs = <span class="built_in">sorted</span>(<span class="built_in">zip</span>(scores, candidates), reverse=<span class="literal">True</span>)</span><br><span class="line">final_docs = [doc <span class="keyword">for</span> _, doc <span class="keyword">in</span> ranked_docs[:<span class="number">5</span>]]</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-CRAG：修正式-RAG"><a href="#4-CRAG：修正式-RAG" class="headerlink" title="4. CRAG：修正式 RAG"></a>4. CRAG：修正式 RAG</h3><p><strong>CRAG（Corrective RAG）</strong> 在拿到检索结果后，先由 LLM 充当”评委”打分：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">检索结果</span><br><span class="line">  ↓ LLM 评估质量</span><br><span class="line">  ├── 高质量 → 直接回答 ✅</span><br><span class="line">  ├── 模糊 → 补充 Web Search 🔍</span><br><span class="line">  └── 完全不相关 → 纯 Web Search 回答 🌐</span><br></pre></td></tr></table></figure>
+
+<p>如果本地知识库查无此文或质量极低，系统会自动触发 Web Search（如 Google API）作为补充，大幅降低幻觉。</p>
+<h3 id="5-GraphRAG：知识图谱-检索融合"><a href="#5-GraphRAG：知识图谱-检索融合" class="headerlink" title="5. GraphRAG：知识图谱 + 检索融合"></a>5. GraphRAG：知识图谱 + 检索融合</h3><p>传统 RAG 将知识库当作独立的文本碎片，无法回答跨文档、多跳推理的复杂问题。GraphRAG 引入<strong>知识图谱</strong>，将实体和关系显式建模：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">传统 RAG:</span><br><span class="line">Q: &quot;找到所有市值超千亿且由创始人担任 CEO 的公司&quot;</span><br><span class="line">  → 片段的文本检索无法完成多条件关联推理 → ❌</span><br><span class="line"></span><br><span class="line">GraphRAG:</span><br><span class="line">Q: 同上</span><br><span class="line">  ├── 向量检索: 召回相关公司描述</span><br><span class="line">  ├── 图遍历:   Neo4j 中查询 (公司)-[CEO]-&gt;(创始人) 路径</span><br><span class="line">  └── 融合生成: LLM 拿到文本片段 + 图结构 → 精准回答 ✅</span><br></pre></td></tr></table></figure>
+
+<p>核心步骤：</p>
+<ul>
+<li><strong>知识构建</strong>：离线阶段用 LLM 从文档提取三元组（主体、关系、客体），写入 Neo4j 等图数据库</li>
+<li><strong>双路检索</strong>：向量检索 + 图遍历</li>
+<li><strong>图文融合</strong>：文本片段 + 关系路径 → LLM</li>
+</ul>
+<hr>
+<h2 id="七、ONNX-模型部署"><a href="#七、ONNX-模型部署" class="headerlink" title="七、ONNX 模型部署"></a>七、ONNX 模型部署</h2><h3 id="为什么需要-ONNX？"><a href="#为什么需要-ONNX？" class="headerlink" title="为什么需要 ONNX？"></a>为什么需要 ONNX？</h3><table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>部署重</td>
+<td>PyTorch 运行时 ≈ 2GB+，不适合容器</td>
+</tr>
+<tr>
+<td>依赖多</td>
+<td>Python + CUDA + PyTorch，环境地狱</td>
+</tr>
+<tr>
+<td>跨平台难</td>
+<td>Java 调 Python 要么走 HTTP 服务，延迟高</td>
+</tr>
+</tbody></table>
+<p><strong>ONNX（Open Neural Network Exchange）</strong> 解决这些：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">PyTorch 模型</span><br><span class="line">  ↓ torch.onnx.export()</span><br><span class="line">model.onnx (单一文件，~90MB)</span><br><span class="line">  ↓ ONNX Runtime (任何语言都能调)</span><br><span class="line">Java / C++ / Rust / Go / Node.js</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="八、评估与优化"><a href="#八、评估与优化" class="headerlink" title="八、评估与优化"></a>八、评估与优化</h2><h3 id="RAGAS-评估框架"><a href="#RAGAS-评估框架" class="headerlink" title="RAGAS 评估框架"></a>RAGAS 评估框架</h3><p>RAG 系统不能凭直觉评估，业界标准是 <strong>RAGAS 框架</strong>，从检索和生成两个维度自动化量化：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>衡量</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Context Recall</strong></td>
+<td>检索</td>
+<td>标准答案中的信息有多少比例被检索到？越高越好</td>
+</tr>
+<tr>
+<td><strong>Context Precision</strong></td>
+<td>检索</td>
+<td>检索到的文档中有多少比例是真正相关的？越高越好</td>
+</tr>
+<tr>
+<td><strong>Faithfulness</strong></td>
+<td>生成</td>
+<td>生成的答案是否都有检索文档支撑？（检测幻觉）</td>
+</tr>
+<tr>
+<td><strong>Answer Relevance</strong></td>
+<td>生成</td>
+<td>答案是否真正回答了用户问题？（防止答非所问）</td>
+</tr>
+</tbody></table>
+<h3 id="性能优化技巧"><a href="#性能优化技巧" class="headerlink" title="性能优化技巧"></a>性能优化技巧</h3><table>
+<thead>
+<tr>
+<th>技巧</th>
+<th>做法</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>批量插入</strong></td>
+<td><code>collection.add(documents=all_docs, ids=all_ids)</code></td>
+<td>10x+ 提升</td>
+</tr>
+<tr>
+<td><strong>向量归一化</strong></td>
+<td>入库前 L2 归一化，查询时用点积等价余弦</td>
+<td>加速计算</td>
+</tr>
+<tr>
+<td><strong>合理 n_results</strong></td>
+<td>RAG 场景 3~10 条足够，别设太大</td>
+<td>减少 token 成本</td>
+</tr>
+<tr>
+<td><strong>元数据过滤</strong></td>
+<td>配合 <code>where={&quot;category&quot;:&quot;tech&quot;}</code> 缩小搜索范围</td>
+<td>提升精度</td>
+</tr>
+<tr>
+<td><strong>定期重建索引</strong></td>
+<td>数据量增长后适时重建 HNSW 索引</td>
+<td>维持查询性能</td>
+</tr>
+</tbody></table>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 批量插入（推荐）</span></span><br><span class="line">collection.add(documents=docs_list, ids=ids_list)</span><br><span class="line"></span><br><span class="line"><span class="comment"># ❌ 不推荐：循环单条（每次都重新索引，效率极低）</span></span><br><span class="line"><span class="comment"># for doc, id in zip(docs_list, ids_list):</span></span><br><span class="line"><span class="comment">#     collection.add(documents=[doc], ids=[id])</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="常见坑大全"><a href="#常见坑大全" class="headerlink" title="常见坑大全"></a>常见坑大全</h3><table>
+<thead>
+<tr>
+<th>坑</th>
+<th>现象</th>
+<th>解决</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>维度不匹配</strong></td>
+<td>pgvector <code>expected 384, not 512</code></td>
+<td><code>ALTER TABLE ... TYPE vector(512)</code></td>
+</tr>
+<tr>
+<td><strong>嵌入模型不统一</strong></td>
+<td>插入和查询用了不同模型</td>
+<td>在配置文件中固定模型版本</td>
+</tr>
+<tr>
+<td><strong>噪音淹没</strong></td>
+<td>99 个不相关 chunk 压住 1 个相关 chunk</td>
+<td>管好入库质量，删掉不相关文档</td>
+</tr>
+<tr>
+<td><strong>Chunk 太小</strong></td>
+<td>检索到碎片，LLM 看不明白</td>
+<td>增大 chunk + 加 overlap</td>
+</tr>
+<tr>
+<td><strong>Chunk 太大</strong></td>
+<td>语义被稀释，相似度不准</td>
+<td>按段落或固定长度切分</td>
+</tr>
+<tr>
+<td><strong>模型未区分 query&#x2F;doc</strong></td>
+<td>检索精度比预期低</td>
+<td>BGE 加 query 前缀</td>
+</tr>
+<tr>
+<td><strong>文本过长</strong></td>
+<td>模型 token 限制（512~8192）</td>
+<td>先分块再嵌入</td>
+</tr>
+<tr>
+<td><strong>Java Text Block 空格</strong></td>
+<td>SQL 拼接 <code>WHEREContent</code></td>
+<td>用 <code>\s</code> 保留行尾空格</td>
+</tr>
+<tr>
+<td><strong>LIMIT 类型错误</strong></td>
+<td>Pg <code>LIMIT 必需 bigint</code></td>
+<td><code>List&lt;Object&gt;</code> 别用 <code>String.valueOf()</code></td>
+</tr>
+<tr>
+<td><strong>冷启动慢</strong></td>
+<td>数据量大时首次加载索引耗时</td>
+<td>提前预热，使用持久索引</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、技术栈选择指南"><a href="#九、技术栈选择指南" class="headerlink" title="九、技术栈选择指南"></a>九、技术栈选择指南</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">你的需求:</span><br><span class="line">├── 纯中文、小规模 → bge-small-zh + pgvector + RRF ✅</span><br><span class="line">├── 多语言、中等规模 → paraphrase-multilingual + Qdrant + RRF</span><br><span class="line">├── 企业级、大规模 → bge-large-zh + Milvus + 重排序</span><br><span class="line">├── 不想管运维 → Pinecone / Zilliz Cloud + Cohere Rerank + GPT-4o</span><br><span class="line">├── 需要专有名词匹配 → Elasticsearch / Weaviate（内置 BM25+向量混合）</span><br><span class="line">├── 没 GPU、Java 项目 → ONNX Runtime + DJL</span><br><span class="line">├── 有 GPU、Python 项目 → sentence-transformers + PyTorch</span><br><span class="line">└── 需要多跳推理 → Neo4j + GraphRAG</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="十、我们的实践"><a href="#十、我们的实践" class="headerlink" title="十、我们的实践"></a>十、我们的实践</h2><p>以「作业批改系统」为例：</p>
+<h3 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">QQ 消息</span><br><span class="line">  ↓</span><br><span class="line">OpenClaw OneBot 插件（Node.js）</span><br><span class="line">  ↓ POST /api/onebot/rag</span><br><span class="line">Spring Boot RAG Controller</span><br><span class="line">  ↓ embedQuery()</span><br><span class="line">EmbeddingService (bge-small-zh-v1.5 / ONNX Runtime)</span><br><span class="line">  ↓</span><br><span class="line">  ├── pgvector cosine search (语义路)</span><br><span class="line">  ├── ILIKE keyword search  (关键词路)</span><br><span class="line">  └── RRF 融合 → Top-6 chunks</span><br><span class="line">  ↓ 组装增强 prompt</span><br><span class="line">OpenClaw Agent (deepseek-v4-flash)</span><br><span class="line">  ↓ 生成回复</span><br><span class="line">QQ 消息</span><br></pre></td></tr></table></figure>
+
+<h3 id="效果对比"><a href="#效果对比" class="headerlink" title="效果对比"></a>效果对比</h3><table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>嵌入方式</th>
+<th>检索结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>初版</td>
+<td>哈希伪向量 + 硬阈值 0.75</td>
+<td><code>hasContext: false</code>，什么都搜不到</td>
+</tr>
+<tr>
+<td>中期</td>
+<td>哈希伪向量 + RRF</td>
+<td><code>hasContext: true</code>，能搜到但精度差</td>
+</tr>
+<tr>
+<td>当前</td>
+<td>bge-small-zh ONNX + RRF</td>
+<td>可精准命中仪表盘数据</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>RAG 不是一个单一技术，而是一个<strong>技术栈</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">文档切割 + 向量嵌入 + 向量数据库 + 混合检索 + Advanced RAG + LLM 生成</span><br></pre></td></tr></table></figure>
+
+<p>每个环节都有多种选择，根据实际场景权衡：</p>
+<ul>
+<li><strong>快速起步</strong>：pgvector + bge-small-zh ONNX + 简单切割 + RRF</li>
+<li><strong>追求精度</strong>：父子检索 + HyDE + 重排序 + 混合检索 + 更大的嵌入模型</li>
+<li><strong>企业级高可用</strong>：Milvus + bge-large-zh + 多路召回 + CRAG + 缓存层</li>
+<li><strong>复杂推理</strong>：Neo4j + GraphRAG + 文本检索双路融合</li>
+</ul>
+<p>核心经验只有一条：<strong>知识库的干净程度比模型精度更重要。</strong> 100 个不相关的 chunk 足以毁掉最好的嵌入模型——管好入库质量，比死磕调参有效得多。</p>
+<hr>
+<blockquote>
+<p><strong>参考资源</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.runoob.com/ai-agent/retrieval-augmented-generation.html">菜鸟教程 - RAG 与知识检索</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.runoob.com/ai-agent/vector-database.html">菜鸟教程 - 向量数据库</a></li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/BAAI/bge-small-zh-v1.5">BGE 模型 (HuggingFace)</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/pgvector/pgvector">pgvector (GitHub)</a></li>
+<li><a target="_blank" rel="noopener" href="https://djl.ai/">DJL - Deep Java Library</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.trychroma.com/">Chroma 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://qdrant.tech/documentation">Qdrant 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf">RRF 论文 (SIGIR 2009)</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html">Elasticsearch RRF</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.ragas.io/">RAGAS 评估框架</a></li>
+<li><a target="_blank" rel="noopener" href="https://huggingface.co/spaces/mteb/leaderboard">MTEB 嵌入模型排行榜 (HuggingFace)</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1603.09320">HNSW 论文</a></li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="http://example.com">龙空灵</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2026/05/12/2026-05-12-rag-technology-guide/">http://example.com/2026/05/12/2026-05-12-rag-technology-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="http://example.com" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/RAG/">RAG</a><a class="post-meta__tags" href="/tags/ONNX/">ONNX</a><a class="post-meta__tags" href="/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a><a class="post-meta__tags" href="/tags/Embedding/">Embedding</a><a class="post-meta__tags" href="/tags/RRF/">RRF</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/05/13/esp32-ble-bridge-refactoring/" title="ESP32-S3 BLE 双角色蓝牙模块重构实战"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">ESP32-S3 BLE 双角色蓝牙模块重构实战</div></div><div class="info-2"><div class="info-item-1">项目背景一个基于 ESP32-S3 的空气质量采样设备，搭载 TJC 串口屏作为人机交互界面。蓝牙模块承担双重角色：  BLE 外设（Peripheral）：通过 Nordic UART Service 与手机 App 通信 BLE 中心设备（Central）：连接蓝牙热敏打印机，打印检测记录  蓝牙模块的核心文件为 printer_scan.c（约 1000 行）和 printer_scan.h。  问题发现：标志位混乱项目运行中出现以下异常现象：  蓝牙关闭时仍能触发连接 —— 串口屏的 connecting 按钮在蓝牙关闭状态下仍可被物理按键触发 连接状态显示不同步 —— 屏幕显示”已连接”但实际连接尚未建立 MAC 设备列表间歇性空 —— 开启蓝牙后扫描正常，但设备列表不显示任何设备 标志位多源写入 —— 同一个连接状态标志被 UI 处理函数和 BLE 任务同时写入  原始标志位全景12345678&quot;蓝牙开关&quot; → sys_status.bluetooth_open ──┐              ble_switch_enabled ───────...</div></div></div></a><a class="pagination-related" href="/2026/05/12/2026-05-12-rag-system-upgrade/" title="RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入</div></div><div class="info-2"><div class="info-item-1">背景为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。  时间线   时间 事件    10:09 发现 RAG 接口返回 {&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}   11:00 定位根因：SIMILARITY_THRESHOLD = 0.75 对哈希向量过高   11:13 实现 RRF 双路混合检索   11:27 修复 SQL 拼接空格&#x2F;LIMIT 类型匹配   11:32 修复 LIMIT 参数类型   11:50 Gateway 重启导致 OneBot 断开   14:59 升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5   15:27 模型下载完成，512 维向量就绪   15:31 pgvector 列维度不匹配报错，改表后修复   15:40 检索精度被 C 语言文档淹没，Top-K 从 3 提到 6   ...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/12/2026-05-12-rag-system-upgrade/" title="RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-12</div><div class="info-item-2">RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入</div></div><div class="info-2"><div class="info-item-1">背景为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。  时间线   时间 事件    10:09 发现 RAG 接口返回 {&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}   11:00 定位根因：SIMILARITY_THRESHOLD = 0.75 对哈希向量过高   11:13 实现 RRF 双路混合检索   11:27 修复 SQL 拼接空格&#x2F;LIMIT 类型匹配   11:32 修复 LIMIT 参数类型   11:50 Gateway 重启导致 OneBot 断开   14:59 升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5   15:27 模型下载完成，512 维向量就绪   15:31 pgvector 列维度不匹配报错，改表后修复   15:40 检索精度被 C 语言文档淹没，Top-K 从 3 提到 6   ...</div></div></div></a><a class="pagination-related" href="/2026/04/27/onebot-rag-integration/" title="为NapCatQQ插件添加RAG功能"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/ff.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-27</div><div class="info-item-2">为NapCatQQ插件添加RAG功能</div></div><div class="info-2"><div class="info-item-1">背景正在开发的作业批改系统需要支持 QQ 群聊答疑功能。学生通过 QQ 向机器人提问时，希望机器人能够基于上传的教学文档（知识库）进行回答，而不是仅依赖模型自身的知识。 架构设计最终架构1学生QQ提问 → NapCat(WS) → OpenClaw OneBot插件 → RAG增强 → 贾维斯Agent → OpenClaw → 回复学生  关键点：  在 OneBot 插件层拦截消息，调用后端 RAG 接口增强 prompt 增强后的消息再发给 Agent 处理 复用现有的向量检索和文档存储系统  实现过程1. 后端接口开发创建 OnebotRagController.java，提供 RAG 增强接口： 123456789101112131415161718192021222324@PostMapping(&quot;/rag&quot;)public ResponseEntity&lt;RagResponse&gt; rag(@RequestBody RagRequest request) &#123;    // 1. RAG 检索    List&lt;String&gt...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">龙空灵</div><div class="author-info-description"></div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">20</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">9</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E7%AF%87%EF%BC%9A%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-RAG%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">开篇：大模型为什么需要 RAG？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81RAG-%E6%A0%B8%E5%BF%83%E6%B5%81%E7%A8%8B"><span class="toc-number">2.</span> <span class="toc-text">一、RAG 核心流程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%98%B6%E6%AE%B5%E4%B8%80%EF%BC%9A%E7%A6%BB%E7%BA%BF%E5%85%A5%E5%BA%93%EF%BC%88Indexing%EF%BC%89"><span class="toc-number">2.1.</span> <span class="toc-text">阶段一：离线入库（Indexing）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%98%B6%E6%AE%B5%E4%BA%8C%EF%BC%9A%E5%9C%A8%E7%BA%BF%E6%9F%A5%E8%AF%A2%EF%BC%88Querying%EF%BC%89"><span class="toc-number">2.2.</span> <span class="toc-text">阶段二：在线查询（Querying）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%96%87%E6%A1%A3%E5%88%87%E5%89%B2%E2%80%94%E2%80%94Chunk-%E7%AD%96%E7%95%A5"><span class="toc-number">3.</span> <span class="toc-text">二、文档切割——Chunk 策略</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%88%87%E5%89%B2%EF%BC%9F"><span class="toc-number">3.1.</span> <span class="toc-text">为什么切割？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%87%E5%89%B2%E7%AD%96%E7%95%A5"><span class="toc-number">3.2.</span> <span class="toc-text">切割策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7%EF%BC%9A%E7%88%B6%E5%AD%90%E6%96%87%E6%A1%A3%E6%A3%80%E7%B4%A2%EF%BC%88Small-to-Big%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">进阶技巧：父子文档检索（Small-to-Big）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%87%E5%88%86%E5%AE%9E%E6%88%98"><span class="toc-number">3.4.</span> <span class="toc-text">切分实战</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E5%9F%BA%E7%A1%80"><span class="toc-number">4.</span> <span class="toc-text">三、向量检索基础</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E6%96%87%E6%9C%AC%E5%90%91%E9%87%8F%EF%BC%9F"><span class="toc-number">4.1.</span> <span class="toc-text">什么是文本向量？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%E7%AE%97%E6%B3%95%EF%BC%9AANN"><span class="toc-number">4.2.</span> <span class="toc-text">向量索引算法：ANN</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D%E7%9B%B8%E4%BC%BC%E5%BA%A6%E8%AE%A1%E7%AE%97%E6%96%B9%E6%B3%95"><span class="toc-number">4.3.</span> <span class="toc-text">三种相似度计算方法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E6%A0%91"><span class="toc-number">4.4.</span> <span class="toc-text">向量数据库选型决策树</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Chroma-%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B"><span class="toc-number">4.5.</span> <span class="toc-text">Chroma 快速上手</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81Embedding-%E6%A8%A1%E5%9E%8B%E6%B7%B1%E5%85%A5"><span class="toc-number">5.</span> <span class="toc-text">四、Embedding 模型深入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8E%E8%AF%8D%E8%A2%8B%E5%88%B0-Transformer"><span class="toc-number">5.1.</span> <span class="toc-text">从词袋到 Transformer</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BB%E6%B5%81%E6%A8%A1%E5%9E%8B%E5%AF%B9%E6%AF%94"><span class="toc-number">5.2.</span> <span class="toc-text">主流模型对比</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B5%8C%E5%85%A5%E6%A8%A1%E5%9E%8B%E7%9A%84%E9%80%89%E6%8B%A9%E5%8E%9F%E5%88%99"><span class="toc-number">5.3.</span> <span class="toc-text">嵌入模型的选择原则</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#BGE-%E6%A8%A1%E5%9E%8B%E7%9A%84%E7%89%B9%E6%AE%8A%E8%AE%BE%E8%AE%A1%EF%BC%9A%E6%8C%87%E4%BB%A4%E6%84%9F%E7%9F%A5"><span class="toc-number">5.4.</span> <span class="toc-text">BGE 模型的特殊设计：指令感知</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2%E2%80%94%E2%80%94%E4%B8%BA%E4%BB%80%E4%B9%88%E5%8D%95%E8%B7%AF%E4%B8%8D%E5%A4%9F%EF%BC%9F"><span class="toc-number">6.</span> <span class="toc-text">五、混合检索——为什么单路不够？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%AD%E4%B9%89%E5%90%91%E9%87%8F%E7%9A%84%E7%9B%B2%E5%8C%BA"><span class="toc-number">6.1.</span> <span class="toc-text">语义向量的盲区</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E8%AF%8D%E6%A3%80%E7%B4%A2%E7%9A%84%E7%9B%B2%E5%8C%BA"><span class="toc-number">6.2.</span> <span class="toc-text">关键词检索的盲区</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2-%E5%8F%96%E9%95%BF%E8%A1%A5%E7%9F%AD"><span class="toc-number">6.3.</span> <span class="toc-text">混合检索 &#x3D; 取长补短</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RRF%EF%BC%88Reciprocal-Rank-Fusion%EF%BC%89%E5%8E%9F%E7%90%86"><span class="toc-number">6.4.</span> <span class="toc-text">RRF（Reciprocal Rank Fusion）原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E4%BB%A3%E7%A0%81"><span class="toc-number">6.5.</span> <span class="toc-text">实现代码</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81Advanced-RAG-%E2%80%94%E2%80%94-%E8%BF%9B%E9%98%B6%E6%9E%B6%E6%9E%84"><span class="toc-number">7.</span> <span class="toc-text">六、Advanced RAG —— 进阶架构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E9%A2%84%E6%A3%80%E7%B4%A2%EF%BC%9A%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96"><span class="toc-number">7.1.</span> <span class="toc-text">1. 预检索：查询优化</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9F%A5%E8%AF%A2%E6%94%B9%E5%86%99%EF%BC%88Query-Rewriting%EF%BC%89"><span class="toc-number">7.1.1.</span> <span class="toc-text">查询改写（Query Rewriting）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#HyDE%EF%BC%88%E5%81%87%E8%AE%BE%E6%96%87%E6%A1%A3%E5%B5%8C%E5%85%A5%EF%BC%89"><span class="toc-number">7.1.2.</span> <span class="toc-text">HyDE（假设文档嵌入）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%A3%80%E7%B4%A2%E8%9E%8D%E5%90%88%EF%BC%9A%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2"><span class="toc-number">7.2.</span> <span class="toc-text">2. 检索融合：混合检索</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%90%8E%E6%A3%80%E7%B4%A2%EF%BC%9A%E9%87%8D%E6%8E%92%E5%BA%8F%EF%BC%88Reranking%EF%BC%89"><span class="toc-number">7.3.</span> <span class="toc-text">3. 后检索：重排序（Reranking）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-CRAG%EF%BC%9A%E4%BF%AE%E6%AD%A3%E5%BC%8F-RAG"><span class="toc-number">7.4.</span> <span class="toc-text">4. CRAG：修正式 RAG</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-GraphRAG%EF%BC%9A%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1-%E6%A3%80%E7%B4%A2%E8%9E%8D%E5%90%88"><span class="toc-number">7.5.</span> <span class="toc-text">5. GraphRAG：知识图谱 + 检索融合</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81ONNX-%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2"><span class="toc-number">8.</span> <span class="toc-text">七、ONNX 模型部署</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-ONNX%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">为什么需要 ONNX？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E4%BC%98%E5%8C%96"><span class="toc-number">9.</span> <span class="toc-text">八、评估与优化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#RAGAS-%E8%AF%84%E4%BC%B0%E6%A1%86%E6%9E%B6"><span class="toc-number">9.1.</span> <span class="toc-text">RAGAS 评估框架</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E6%8A%80%E5%B7%A7"><span class="toc-number">9.2.</span> <span class="toc-text">性能优化技巧</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E5%9D%91%E5%A4%A7%E5%85%A8"><span class="toc-number">9.3.</span> <span class="toc-text">常见坑大全</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E6%8A%80%E6%9C%AF%E6%A0%88%E9%80%89%E6%8B%A9%E6%8C%87%E5%8D%97"><span class="toc-number">10.</span> <span class="toc-text">九、技术栈选择指南</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E6%88%91%E4%BB%AC%E7%9A%84%E5%AE%9E%E8%B7%B5"><span class="toc-number">11.</span> <span class="toc-text">十、我们的实践</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84"><span class="toc-number">11.1.</span> <span class="toc-text">架构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%88%E6%9E%9C%E5%AF%B9%E6%AF%94"><span class="toc-number">11.2.</span> <span class="toc-text">效果对比</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">12.</span> <span class="toc-text">总结</span></a></li></ol></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 龙空灵</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"></div><canvas id="universe"></canvas><script defer src="/js/universe.js"></script><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="30" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_categories_card_injector_config(){
+    // 检查容器是否存在
+    var parent_div_git = document.getElementById('recent-posts');
+    // 如果容器不存在，则动态创建
+    if (!parent_div_git) {
+      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
+      // 创建新容器（默认插入到页面主体顶部）
+      parent_div_git = document.createElement('div');
+      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
+      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
+    }
+    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/">项目总结</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr">JAVA 后端</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/categories/学习记录/">学习记录</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr">玩转Win10</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/categories/AI/">AI</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">长篇小说连载</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/categories/Markdown/">Markdown</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">个人日记</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/Java后端/">Java后端</a><span class="categoryBar-list-count">6</span><span class="categoryBar-list-descr">诗词歌赋</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/">RAG</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">杂谈教程</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/计算机网络/">计算机网络</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/后端开发/">后端开发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/嵌入式开发/">嵌入式开发</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+    console.log('已挂载 butterfly_categories_card');
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+  }
+  // 路径匹配逻辑（使用 startsWith）
+  if (location.pathname.startsWith('/categories/,/tags/,/archives/,/') || '/categories/,/tags/,/archives/,/' === 'all') {
+    butterfly_categories_card_injector_config();
+  }
+  </script><div class="js-pjax"><script async="async">var arr = document.getElementsByClassName('recent-post-item');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '1s');
+    arr[i].setAttribute('data-wow-delay', '0s');
+    arr[i].setAttribute('data-wow-offset', '100');
+    arr[i].setAttribute('data-wow-iteration', '1');
+  }</script><script async="async">var arr = document.getElementsByClassName('card-widget');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '');
+    arr[i].setAttribute('data-wow-delay', '');
+    arr[i].setAttribute('data-wow-offset', '');
+    arr[i].setAttribute('data-wow-iteration', '');
+  }</script></div><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow.min.js"></script><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow_init.js"></script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
