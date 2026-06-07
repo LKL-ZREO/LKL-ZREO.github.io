@@ -1,0 +1,433 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口 | LKL-ZREO</title><meta name="author" content="龙空灵"><meta name="copyright" content="龙空灵"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="ffffff"><meta name="description" content="基于 Spring Boot + Bucket4j + Redisson 构建网关级令牌桶限流，与现有方法级 Redis Lua 滑动窗口限流形成分层防护体系。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口">
+<meta property="og:url" content="https://www.lkl-zero.top/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/index.html">
+<meta property="og:site_name" content="LKL-ZREO">
+<meta property="og:description" content="基于 Spring Boot + Bucket4j + Redisson 构建网关级令牌桶限流，与现有方法级 Redis Lua 滑动窗口限流形成分层防护体系。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png">
+<meta property="article:published_time" content="2026-05-20T15:06:00.000Z">
+<meta property="article:modified_time" content="2026-05-20T15:06:00.000Z">
+<meta property="article:author" content="龙空灵">
+<meta property="article:tag" content="Bucket4j">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="Redisson">
+<meta property="article:tag" content="Spring Boot">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="限流">
+<meta property="article:tag" content="高并发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口",
+  "url": "https://www.lkl-zero.top/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/",
+  "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png",
+  "datePublished": "2026-05-20T15:06:00.000Z",
+  "dateModified": "2026-05-20T15:06:00.000Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "龙空灵",
+      "url": "https://www.lkl-zero.top"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/images/favicon.png"><link rel="canonical" href="https://www.lkl-zero.top/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', 'ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          const hour = new Date().getHours()
+          const isNight = hour <= 6 || hour >= 18
+          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
+          else theme === 'light' ? activateLightMode() : activateDarkMode()
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: {"defaultEncoding":2,"translateDelay":0,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"简"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: true,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-right"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><link rel="stylesheet" href="/css/universe.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/animate.min.css" media="print" onload="this.media='screen'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">31</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">75</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">23</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-20T15:06:00.000Z" title="发表于 2026-05-20 23:06:00">2026-05-20</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-20T15:06:00.000Z" title="更新于 2026-05-20 23:06:00">2026-05-20</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">1.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>7分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-05-20 23:06:00&quot;}" hidden></div><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>项目中已有基于 <code>@RateLimit</code> 注解的方法级限流，通过 Redis Lua 滑动窗口实现。但它存在两个问题：</p>
+<ol>
+<li><strong>入口即 Controller</strong>：限流在 AOP 切面触发，恶意请求已经走完了 Filter Chain、Security 上下文构建等流程</li>
+<li><strong>不支持突发流量</strong>：滑动窗口是严格的计数限流，超了就拒，无法应对合理突发</li>
+</ol>
+<p>因此引入<strong>网关层令牌桶</strong>作为第一道防线，与方法层滑动窗口形成二级分层限流。</p>
+<hr>
+<h2 id="架构设计"><a href="#架构设计" class="headerlink" title="架构设计"></a>架构设计</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">请求进入</span><br><span class="line">  │</span><br><span class="line">  ▼</span><br><span class="line">┌─────────────────────────────────────────┐</span><br><span class="line">│  ① TokenBucketInterceptor (网关层)       │  Bucket4j 分布式令牌桶</span><br><span class="line">│     维度：IP + URI                       │  粗粒度防刷，支持突发</span><br><span class="line">│     存储：Redis (Redisson CAS)           │</span><br><span class="line">│     顺序：order(0) 最先执行              │</span><br><span class="line">└───────────────┬─────────────────────────┘</span><br><span class="line">                │ 放行</span><br><span class="line">                ▼</span><br><span class="line">┌─────────────────────────────────────────┐</span><br><span class="line">│  ② RateLimitAspect (方法层)              │  Redis Lua 滑动窗口</span><br><span class="line">│     维度：GLOBAL / IP / USER             │  细粒度业务限流</span><br><span class="line">│     注解：@RateLimit                     │</span><br><span class="line">└───────────────┬─────────────────────────┘</span><br><span class="line">                │ 放行</span><br><span class="line">                ▼</span><br><span class="line">           Controller</span><br></pre></td></tr></table></figure>
+
+<h3 id="为什么是令牌桶而非漏桶？"><a href="#为什么是令牌桶而非漏桶？" class="headerlink" title="为什么是令牌桶而非漏桶？"></a>为什么是令牌桶而非漏桶？</h3><table>
+<thead>
+<tr>
+<th>算法</th>
+<th>突发流量</th>
+<th>平滑性</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>计数器（滑动窗口）</td>
+<td>❌ 不友好</td>
+<td>中</td>
+<td>接口级精确限流</td>
+</tr>
+<tr>
+<td>漏桶</td>
+<td>❌ 严格平滑</td>
+<td>高</td>
+<td>网络流量整形</td>
+</tr>
+<tr>
+<td><strong>令牌桶</strong></td>
+<td>✅ 桶容量内允许突发</td>
+<td>高</td>
+<td><strong>网关限流</strong></td>
+</tr>
+</tbody></table>
+<p>令牌桶可以设置 <code>capacity=30, refill=20/min</code>，意味着稳态每秒约 0.33 个请求，但短时间内可以突发 30 个请求——符合真实用户行为。</p>
+<hr>
+<h2 id="技术选型"><a href="#技术选型" class="headerlink" title="技术选型"></a>技术选型</h2><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>版本</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bucket4j</td>
+<td>8.10.1</td>
+<td>令牌桶算法核心库</td>
+</tr>
+<tr>
+<td>bucket4j-redis</td>
+<td>8.10.1</td>
+<td>Redis 分布式代理</td>
+</tr>
+<tr>
+<td>Redisson</td>
+<td>3.29.0</td>
+<td>Redis 客户端，提供 CAS 操作</td>
+</tr>
+<tr>
+<td>Caffeine</td>
+<td>Spring Boot 内置</td>
+<td>本地缓存桶代理引用</td>
+</tr>
+</tbody></table>
+<p>关键依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.bucket4j<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>bucket4j-redis<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>8.10.1<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>注意</strong>：Bucket4j 8.x 的 groupId 已从 <code>com.github.vladimir-bukhtoyarov</code> 迁移至 <code>com.bucket4j</code>。</p>
+</blockquote>
+<hr>
+<h2 id="核心实现"><a href="#核心实现" class="headerlink" title="核心实现"></a>核心实现</h2><h3 id="1-配置属性类"><a href="#1-配置属性类" class="headerlink" title="1. 配置属性类"></a>1. 配置属性类</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Data</span></span><br><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="meta">@ConfigurationProperties(prefix = &quot;rate-limit&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">BucketConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 按接口路径配置的限流规则 */</span></span><br><span class="line">    <span class="keyword">private</span> Map&lt;String, Rule&gt; rules = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 匿名路径默认规则 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">Rule</span> <span class="variable">anonymousDefault</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Rule</span>(<span class="number">30</span>, <span class="number">20</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** 已认证路径默认规则 */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">Rule</span> <span class="variable">authenticatedDefault</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Rule</span>(<span class="number">60</span>, <span class="number">40</span>);</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Data</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Rule</span> &#123;</span><br><span class="line">        <span class="comment">/** 桶容量（允许的最大突发请求数） */</span></span><br><span class="line">        <span class="meta">@Min(1)</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> capacity;</span><br><span class="line">        <span class="comment">/** 每分钟补充的令牌数（稳态速率） */</span></span><br><span class="line">        <span class="meta">@Min(1)</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> refillPerMinute;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>配置文件示例：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">rate-limit:</span></span><br><span class="line">  <span class="attr">anonymous-default:</span></span><br><span class="line">    <span class="attr">capacity:</span> <span class="number">30</span></span><br><span class="line">    <span class="attr">refill-per-minute:</span> <span class="number">20</span></span><br><span class="line">  <span class="attr">authenticated-default:</span></span><br><span class="line">    <span class="attr">capacity:</span> <span class="number">60</span></span><br><span class="line">    <span class="attr">refill-per-minute:</span> <span class="number">40</span></span><br><span class="line">  <span class="attr">rules:</span></span><br><span class="line">    <span class="string">/api/homework/submit:</span></span><br><span class="line">      <span class="attr">capacity:</span> <span class="number">5</span></span><br><span class="line">      <span class="attr">refill-per-minute:</span> <span class="number">3</span></span><br><span class="line">    <span class="string">/api/dashboard/:</span></span><br><span class="line">      <span class="attr">capacity:</span> <span class="number">60</span></span><br><span class="line">      <span class="attr">refill-per-minute:</span> <span class="number">30</span></span><br><span class="line">    <span class="string">/api/rag/:</span></span><br><span class="line">      <span class="attr">capacity:</span> <span class="number">30</span></span><br><span class="line">      <span class="attr">refill-per-minute:</span> <span class="number">15</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-分布式代理管理器"><a href="#2-分布式代理管理器" class="headerlink" title="2. 分布式代理管理器"></a>2. 分布式代理管理器</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Bucket4jRedisConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> ProxyManager&lt;String&gt; <span class="title function_">bucketProxyManager</span><span class="params">(</span></span><br><span class="line"><span class="params">            CommandAsyncExecutor commandAsyncExecutor)</span> &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> RedissonBasedProxyManager</span><br><span class="line">                .&lt;String&gt;builderFor(commandAsyncExecutor)</span><br><span class="line">                .withExpirationStrategy(</span><br><span class="line">                    ExpirationAfterWriteStrategy</span><br><span class="line">                        .basedOnTimeForRefillingBucketUpToMax(</span><br><span class="line">                            Duration.ofMinutes(<span class="number">60</span>)))</span><br><span class="line">                .build();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean(&quot;bucketLocalCache&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> Cache&lt;String, Bucket&gt; <span class="title function_">bucketLocalCache</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> Caffeine.newBuilder()</span><br><span class="line">                .maximumSize(<span class="number">10_000</span>)</span><br><span class="line">                .expireAfterAccess(Duration.ofMinutes(<span class="number">10</span>))</span><br><span class="line">                .recordStats()</span><br><span class="line">                .build();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里有两个 Bean：</p>
+<ul>
+<li><strong>ProxyManager</strong>：Bucket4j 的 Redis 代理，底层通过 Redisson CAS 实现原子性；桶状态持久化在 Redis，多实例共享</li>
+<li><strong>Caffeine Cache</strong>：本地缓存桶代理引用，避免每次请求都重新构建代理对象，但令牌状态仍在 Redis 端维护</li>
+</ul>
+<h3 id="3-限流器核心组件"><a href="#3-限流器核心组件" class="headerlink" title="3. 限流器核心组件"></a>3. 限流器核心组件</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DistributedRateLimiter</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ProxyManager&lt;String&gt; proxyManager;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Cache&lt;String, Bucket&gt; localCache;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">tryConsume</span><span class="params">(String key, <span class="type">int</span> capacity,</span></span><br><span class="line"><span class="params">                              <span class="type">long</span> refillPerMinute)</span> &#123;</span><br><span class="line">        <span class="type">Bucket</span> <span class="variable">bucket</span> <span class="operator">=</span> resolveBucket(key, capacity, refillPerMinute);</span><br><span class="line">        <span class="keyword">return</span> bucket.tryConsume(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Bucket <span class="title function_">resolveBucket</span><span class="params">(String key, <span class="type">int</span> capacity,</span></span><br><span class="line"><span class="params">                                  <span class="type">long</span> refillPerMinute)</span> &#123;</span><br><span class="line">        <span class="comment">// 参数变更时需重建桶，将参数编入缓存键</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">cacheKey</span> <span class="operator">=</span> key + <span class="string">&quot;|&quot;</span> + capacity + <span class="string">&quot;|&quot;</span> + refillPerMinute;</span><br><span class="line">        <span class="keyword">return</span> localCache.get(cacheKey, k -&gt;</span><br><span class="line">                buildDistributedBucket(key, capacity, refillPerMinute));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> Bucket <span class="title function_">buildDistributedBucket</span><span class="params">(String key, <span class="type">int</span> capacity,</span></span><br><span class="line"><span class="params">                                           <span class="type">long</span> refillPerMinute)</span> &#123;</span><br><span class="line">        <span class="type">Refill</span> <span class="variable">refill</span> <span class="operator">=</span> Refill.greedy(refillPerMinute, Duration.ofMinutes(<span class="number">1</span>));</span><br><span class="line">        <span class="type">Bandwidth</span> <span class="variable">limit</span> <span class="operator">=</span> Bandwidth.classic(capacity, refill);</span><br><span class="line">        <span class="type">BucketConfiguration</span> <span class="variable">configuration</span> <span class="operator">=</span> BucketConfiguration.builder()</span><br><span class="line">                .addLimit(limit)</span><br><span class="line">                .build();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> proxyManager.builder()</span><br><span class="line">                .build(key, configuration);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关键设计：</p>
+<ul>
+<li><strong>Refill.greedy</strong>：令牌连续平滑补充，而非 <code>intervally</code> 的梯级补充，更符合真实流量模型</li>
+<li><strong>Cache Key 编码参数</strong>：当配置热更新时（capacity&#x2F;refillRate 变化），自动重建桶</li>
+<li><strong>ProxyManager.builder().build(key, config)</strong>：返回 <code>BucketProxy</code>，其 <code>tryConsume</code> 通过 Redis Lua 脚本原子执行</li>
+</ul>
+<h3 id="4-网关拦截器"><a href="#4-网关拦截器" class="headerlink" title="4. 网关拦截器"></a>4. 网关拦截器</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Slf4j</span></span><br><span class="line"><span class="meta">@RequiredArgsConstructor</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TokenBucketInterceptor</span> <span class="keyword">implements</span> <span class="title class_">HandlerInterceptor</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> DistributedRateLimiter rateLimiter;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> BucketConfig bucketConfig;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> ObjectMapper objectMapper;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">preHandle</span><span class="params">(HttpServletRequest request,</span></span><br><span class="line"><span class="params">                             HttpServletResponse response,</span></span><br><span class="line"><span class="params">                             Object handler)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">clientIp</span> <span class="operator">=</span> getClientIp(request);</span><br><span class="line">        <span class="type">String</span> <span class="variable">uri</span> <span class="operator">=</span> request.getRequestURI();</span><br><span class="line">        <span class="type">String</span> <span class="variable">bucketKey</span> <span class="operator">=</span> <span class="string">&quot;bucket:&#123;&quot;</span> + clientIp + <span class="string">&quot;&#125;:&quot;</span> + uri;</span><br><span class="line"></span><br><span class="line">        BucketConfig.<span class="type">Rule</span> <span class="variable">rule</span> <span class="operator">=</span> resolveRule(uri, request);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (rateLimiter.tryConsume(bucketKey,</span><br><span class="line">                rule.getCapacity(), rule.getRefillPerMinute())) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 429 Too Many Requests</span></span><br><span class="line">        response.setStatus(<span class="number">429</span>);</span><br><span class="line">        response.setContentType(<span class="string">&quot;application/json;charset=UTF-8&quot;</span>);</span><br><span class="line">        response.getWriter().write(objectMapper.writeValueAsString(Map.of(</span><br><span class="line">            <span class="string">&quot;code&quot;</span>, <span class="number">429</span>,</span><br><span class="line">            <span class="string">&quot;message&quot;</span>, <span class="string">&quot;请求过于频繁，请稍后重试&quot;</span></span><br><span class="line">        )));</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>规则匹配策略：</p>
+<ol>
+<li><strong>精确匹配</strong> <code>/api/homework/submit</code></li>
+<li><strong>前缀匹配</strong> <code>/api/dashboard/</code> → 匹配 <code>/api/dashboard/metrics</code></li>
+<li><strong>默认回退</strong> 根据是否认证选择 <code>anonymousDefault</code> &#x2F; <code>authenticatedDefault</code></li>
+</ol>
+<h3 id="5-注册拦截器"><a href="#5-注册拦截器" class="headerlink" title="5. 注册拦截器"></a>5. 注册拦截器</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">WebMvcConfig</span> <span class="keyword">implements</span> <span class="title class_">WebMvcConfigurer</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">addInterceptors</span><span class="params">(InterceptorRegistry registry)</span> &#123;</span><br><span class="line">        registry.addInterceptor(tokenBucketInterceptor)</span><br><span class="line">                .addPathPatterns(<span class="string">&quot;/api/**&quot;</span>)</span><br><span class="line">                .excludePathPatterns(</span><br><span class="line">                    <span class="string">&quot;/api/auth/**&quot;</span>,     <span class="comment">// 登录注册不限流</span></span><br><span class="line">                    <span class="string">&quot;/actuator/**&quot;</span>,     <span class="comment">// 健康检查不限流</span></span><br><span class="line">                    <span class="string">&quot;/error&quot;</span></span><br><span class="line">                )</span><br><span class="line">                .order(<span class="number">0</span>);              <span class="comment">// 最先执行</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-Redis-配置调整"><a href="#6-Redis-配置调整" class="headerlink" title="6. Redis 配置调整"></a>6. Redis 配置调整</h3><p>原有 <code>RedisConfig</code> 需额外暴露 <code>CommandAsyncExecutor</code> Bean（Bucket4j 8.x 的 Redisson 集成需要）：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Redisson redissonInstance;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Bean</span></span><br><span class="line"><span class="keyword">public</span> CommandAsyncExecutor <span class="title function_">commandAsyncExecutor</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> redissonInstance.getCommandExecutor();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="Redis-Key-设计"><a href="#Redis-Key-设计" class="headerlink" title="Redis Key 设计"></a>Redis Key 设计</h2><h3 id="网关层令牌桶（Bucket4j）"><a href="#网关层令牌桶（Bucket4j）" class="headerlink" title="网关层令牌桶（Bucket4j）"></a>网关层令牌桶（Bucket4j）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">bucket:&#123;192.168.1.100&#125;:/api/homework/submit</span><br><span class="line">bucket:&#123;192.168.1.100&#125;:/api/dashboard/metrics</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>{ip}</code> 包裹保证同一 IP 的 key 落在相同 Redis hash slot，兼容 Cluster 模式</li>
+<li>桶状态包含：当前令牌数、最后补充时间、配置信息</li>
+<li>超期 60 分钟未访问自动清理</li>
+</ul>
+<h3 id="方法层滑动窗口（保持不动）"><a href="#方法层滑动窗口（保持不动）" class="headerlink" title="方法层滑动窗口（保持不动）"></a>方法层滑动窗口（保持不动）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ratelimit:&#123;ClassName:methodName&#125;:global</span><br><span class="line">ratelimit:&#123;ClassName:methodName&#125;:ip:192.168.1.100</span><br><span class="line">ratelimit:&#123;ClassName:methodName&#125;:user:12345</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="错误码体系"><a href="#错误码体系" class="headerlink" title="错误码体系"></a>错误码体系</h2><table>
+<thead>
+<tr>
+<th>层级</th>
+<th>HTTP 状态码</th>
+<th>响应格式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>网关层</td>
+<td><code>429 Too Many Requests</code></td>
+<td><code>{&quot;code&quot;:429,&quot;message&quot;:&quot;请求过于频繁，请稍后重试&quot;}</code></td>
+</tr>
+<tr>
+<td>方法层</td>
+<td><code>429 Too Many Requests</code></td>
+<td><code>RateLimitExceededException</code> → <code>GlobalExceptionHandler</code></td>
+</tr>
+</tbody></table>
+<p>两层都返回 429，前端可以统一处理。通过日志区分触发层级。</p>
+<hr>
+<h2 id="监控集成建议"><a href="#监控集成建议" class="headerlink" title="监控集成建议"></a>监控集成建议</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 暴露令牌桶剩余量给 Actuator</span></span><br><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="meta">@RequestMapping(&quot;/actuator&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RateLimitMetricsEndpoint</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@GetMapping(&quot;/ratelimit/&#123;uri&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> Map&lt;String, Object&gt; <span class="title function_">getMetrics</span><span class="params">(<span class="meta">@PathVariable</span> String uri,</span></span><br><span class="line"><span class="params">                                          HttpServletRequest request)</span> &#123;</span><br><span class="line">        <span class="type">long</span> <span class="variable">tokens</span> <span class="operator">=</span> rateLimiter.getAvailableTokens(</span><br><span class="line">                <span class="string">&quot;bucket:&#123;&quot;</span> + request.getRemoteAddr() + <span class="string">&quot;&#125;:&quot;</span> + uri, <span class="number">30</span>, <span class="number">20</span>);</span><br><span class="line">        <span class="keyword">return</span> Map.of(<span class="string">&quot;availableTokens&quot;</span>, tokens);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>配合 Prometheus + Grafana 可展示：</p>
+<ul>
+<li>各接口限流触发次数</li>
+<li>桶令牌余量趋势</li>
+<li>Caffeine 缓存命中率（<code>recordStats()</code> 已开启）</li>
+</ul>
+<hr>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>改动前</th>
+<th>改动后</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>限流层级</td>
+<td>仅方法层</td>
+<td>网关层 + 方法层 双层</td>
+</tr>
+<tr>
+<td>算法</td>
+<td>滑动窗口（一种）</td>
+<td>令牌桶 + 滑动窗口（两种）</td>
+</tr>
+<tr>
+<td>突发流量</td>
+<td>不支持</td>
+<td>桶容量内支持</td>
+</tr>
+<tr>
+<td>分布式</td>
+<td>Redis Lua（单机也可）</td>
+<td>Bucket4j + Redisson CAS</td>
+</tr>
+<tr>
+<td>配置灵活性</td>
+<td>注解硬编码</td>
+<td>配置文件 + 注解</td>
+</tr>
+<tr>
+<td>多实例</td>
+<td>已支持</td>
+<td>已支持</td>
+</tr>
+</tbody></table>
+<p>面试时一句话表述：</p>
+<blockquote>
+<p>“构建了网关级令牌桶 + 方法级滑动窗口的分层限流体系，网关层基于 Bucket4j + Redisson CAS 实现分布式令牌桶，支持按接口路径差异化配置和突发流量；方法层基于 Redis Lua 滑动窗口实现全局&#x2F;IP&#x2F;用户多维度精确限流。两层均兼容 Redis Cluster 模式。”</p>
+</blockquote>
+<hr>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://bucket4j.com/">Bucket4j 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://redisson.org/">Redisson 官方文档</a></li>
+<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Token_bucket">Token Bucket 算法 - Wikipedia</a></li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top">龙空灵</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/">https://www.lkl-zero.top/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://www.lkl-zero.top" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/Redis/">Redis</a><a class="post-meta__tags" href="/tags/%E9%99%90%E6%B5%81/">限流</a><a class="post-meta__tags" href="/tags/Bucket4j/">Bucket4j</a><a class="post-meta__tags" href="/tags/Redisson/">Redisson</a><a class="post-meta__tags" href="/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/05/21/c-homework-grading-platform-report/" title="C语言作业智能批改与学情分析平台 — 项目汇报"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">C语言作业智能批改与学情分析平台 — 项目汇报</div></div><div class="info-2"><div class="info-item-1">一、项目定位一个面向 C 语言教学的全链路智能平台：学生提交代码 → AI 自动批改 → 多维度学情分析 → QQ 群实时通知 → RAG 知识库辅助教学决策。 一句话：把教师从重复批改中解放出来，把教学决策从”凭感觉”变成”看数据”。  二、核心业务流程12345678910111213141516171819202122232425262728293031323334学生提交代码(QQ/Web)      │      ▼  文件名解析 ─── 学号_姓名_班级_作业名.c  (正则提取，无需登录)      │      ▼  提交次数校验(最多3次) + 班级校验      │      ▼  Redis Stream 异步队列      │         │      ▼         ▼  AI 批改     定时提醒(QQ群+私聊)  (OpenClaw   24h/1h截止预警   Agent)     全员完成播报      │      ▼  JSON 结构化结果  ├── totalScore / overallComment  ├── strength...</div></div></div></a><a class="pagination-related" href="/2026/05/19/2026-05-19-teaching-system-optimization/" title="教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP</div></div><div class="info-2"><div class="info-item-1">背景对一个基于 Spring Boot 4.0 + MyBatis-Plus + PostgreSQL 的教学管理系统进行技术升级，参考了 spring-ai 企业级项目的架构模式，完成了三项核心优化。  一、Java 17 → 21 + 虚拟线程改动pom.xml 1&lt;java.version&gt;17&lt;/java.version&gt;  →  &lt;java.version&gt;21&lt;/java.version&gt;  application.properties 1spring.threads.virtual.enabled=true  原理Spring Boot 4.0 原生支持 Java 21 虚拟线程（Project Loom）。开启后，Tomcat 请求处理线程、@Async 方法、WebFlux 调度线程全部切换为虚拟线程。 虚拟线程由 JVM 管理，不绑定 OS 线程，I&#x2F;O 阻塞时自动让出 CPU。对于 AI API 调用、数据库查询、Redis 操作等 I&#x2F;O 密集型场景，并发吞吐显著提升。 兼容性现有 pom...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/19/2026-05-19-teaching-system-optimization/" title="教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-19</div><div class="info-item-2">教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP</div></div><div class="info-2"><div class="info-item-1">背景对一个基于 Spring Boot 4.0 + MyBatis-Plus + PostgreSQL 的教学管理系统进行技术升级，参考了 spring-ai 企业级项目的架构模式，完成了三项核心优化。  一、Java 17 → 21 + 虚拟线程改动pom.xml 1&lt;java.version&gt;17&lt;/java.version&gt;  →  &lt;java.version&gt;21&lt;/java.version&gt;  application.properties 1spring.threads.virtual.enabled=true  原理Spring Boot 4.0 原生支持 Java 21 虚拟线程（Project Loom）。开启后，Tomcat 请求处理线程、@Async 方法、WebFlux 调度线程全部切换为虚拟线程。 虚拟线程由 JVM 管理，不绑定 OS 线程，I&#x2F;O 阻塞时自动让出 CPU。对于 AI API 调用、数据库查询、Redis 操作等 I&#x2F;O 密集型场景，并发吞吐显著提升。 兼容性现有 pom...</div></div></div></a><a class="pagination-related" href="/2026/05/19/2026-05-19-homework-system-optimization/" title="作业批改系统技术优化日志"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-19</div><div class="info-item-2">作业批改系统技术优化日志</div></div><div class="info-2"><div class="info-item-1">概述针对作业批改系统（Spring Boot 4.0.4 + OpenClaw Gateway）进行了一轮系统优化，涵盖定时任务、插件稳定性、接口文档、缓存性能四个维度。  一、OpenClaw Cron 定时播报需求每周五在 QQ 群自动播报未完成作业的学生名单。 架构12345OpenClaw cron（每周五 20:00）   → web_fetch → 触发 Spring Boot /api/homework/tasks/remind-all   → TaskReminderService.sendRecurringStatusReminder()   → 查 class_student + submission → 未交名单   → OneBotHttpService → Napcat HTTP → QQ 群消息  关键代码HomeworkTaskMapper.java — 查活跃作业： 123@Select(&quot;SELECT * FROM homework_task WHERE status != &#x27;closed&#x27; &quot; +    ...</div></div></div></a><a class="pagination-related" href="/2026/05/10/2026-05-10-homework-system-qq-bot/" title="作业批改系统开发实录：QQ机器人提醒功能实现"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-10</div><div class="info-item-2">作业批改系统开发实录：QQ机器人提醒功能实现</div></div><div class="info-2"><div class="info-item-1">前言今天为作业批改系统增加了QQ机器人提醒功能，包括作业截止提醒、成绩不理想私聊提醒等。记录一下实现过程和遇到的问题。   功能需求 作业截止前群提醒 - 在截止前24小时和1小时发送群消息 成绩不理想私聊提醒 - 分数&lt;60分时私聊学生 首次提交绑定QQ号 - 收集学生QQ号用于后续提醒  架构设计12345┌─────────────┐     HTTP      ┌─────────────┐│   后端服务   │◄────────────►│   Napcat    ││  (Spring    │   OneBot协议  │  (QQ机器人)  ││   Boot)     │               │             │└─────────────┘               └─────────────┘  选择直接调用 Napcat HTTP 接口，而不是通过 OpenClaw Gateway，这样可以：  降低延迟 代码逻辑更清晰 AI对话和消息发送解耦  核心实现1. OneBot HTTP 服务12345678910111213141...</div></div></div></a><a class="pagination-related" href="/2026/05/09/homework-grading-system-dev-log-2026-05-09/" title="作业批改系统开发日志 - 2026-05-09"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-09</div><div class="info-item-2">作业批改系统开发日志 - 2026-05-09</div></div><div class="info-2"><div class="info-item-1">概述今天完成了作业批改系统的核心功能开发，包括作业任务管理、学生提交功能优化、个人成长曲线，以及前后端联调中的一系列踩坑记录。   数据库表结构变更homework_task 表（新建）用于管理老师发布的作业任务，支持截止时间、逾期扣分等特性。 1234567891011121314151617CREATE TABLE homework_task (    id SERIAL PRIMARY KEY,    class_id BIGINT NOT NULL,    task_name VARCHAR(200) NOT NULL,    description TEXT,    deadline TIMESTAMP,    allow_late BOOLEAN DEFAULT TRUE,    late_penalty INTEGER DEFAULT 0,    status VARCHAR(20) DEFAULT &#x27;active&#x27;,    created_by BIGINT,    created_at TIMESTAMP DEFAULT CURRENT_TI...</div></div></div></a><a class="pagination-related" href="/2026/05/18/2026-05-18-homework-system-optimization/" title="作业批改系统高并发改造与 OpenClaw 集成实战"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-18</div><div class="info-item-2">作业批改系统高并发改造与 OpenClaw 集成实战</div></div><div class="info-2"><div class="info-item-1">概述今天对作业批改系统进行了一次全面改造，解决了三大问题：高并发下的 AI 批改瓶颈、数据库查询性能、以及 OpenClaw OneBot 插件的消息分发故障。本文记录完整的排障过程和解决方案。  一、异步批改：从同步阻塞到 Redis Stream问题原系统 HomeworkController.submitHomework() 的流程是： 1学生提交 → Controller 线程阻塞等待 OpenClaw AI 批改(30-300s) → 写DB → 返回  30 个学生同时提交 → 30 个 Tomcat 线程全阻塞 → 新请求被拒绝 → 数据库连接池(HikariCP max 20)耗尽 → 雪崩。 方案参考 [InterviewGuide] 的 Redis Stream 异步架构： 123提交 → 入库(PENDING) → 入队(Redis Stream) → 秒回&quot;已收到&quot;                         ↓              单线程 Consumer → 调 OpenClaw → 写回结果 → ACK  实现新增 5 ...</div></div></div></a><a class="pagination-related" href="/2026/04/27/onebot-rag-integration/" title="为NapCatQQ插件添加RAG功能"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/ff.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-27</div><div class="info-item-2">为NapCatQQ插件添加RAG功能</div></div><div class="info-2"><div class="info-item-1">背景正在开发的作业批改系统需要支持 QQ 群聊答疑功能。学生通过 QQ 向机器人提问时，希望机器人能够基于上传的教学文档（知识库）进行回答，而不是仅依赖模型自身的知识。 架构设计最终架构1学生QQ提问 → NapCat(WS) → OpenClaw OneBot插件 → RAG增强 → 贾维斯Agent → OpenClaw → 回复学生  关键点：  在 OneBot 插件层拦截消息，调用后端 RAG 接口增强 prompt 增强后的消息再发给 Agent 处理 复用现有的向量检索和文档存储系统  实现过程1. 后端接口开发创建 OnebotRagController.java，提供 RAG 增强接口： 123456789101112131415161718192021222324@PostMapping(&quot;/rag&quot;)public ResponseEntity&lt;RagResponse&gt; rag(@RequestBody RagRequest request) &#123;    // 1. RAG 检索    List&lt;String&gt...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">龙空灵</div><div class="author-info-description"></div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">31</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">75</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">23</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.</span> <span class="toc-text">架构设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E6%98%AF%E4%BB%A4%E7%89%8C%E6%A1%B6%E8%80%8C%E9%9D%9E%E6%BC%8F%E6%A1%B6%EF%BC%9F"><span class="toc-number">2.1.</span> <span class="toc-text">为什么是令牌桶而非漏桶？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B"><span class="toc-number">3.</span> <span class="toc-text">技术选型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.</span> <span class="toc-text">核心实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E9%85%8D%E7%BD%AE%E5%B1%9E%E6%80%A7%E7%B1%BB"><span class="toc-number">4.1.</span> <span class="toc-text">1. 配置属性类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E5%88%86%E5%B8%83%E5%BC%8F%E4%BB%A3%E7%90%86%E7%AE%A1%E7%90%86%E5%99%A8"><span class="toc-number">4.2.</span> <span class="toc-text">2. 分布式代理管理器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E9%99%90%E6%B5%81%E5%99%A8%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6"><span class="toc-number">4.3.</span> <span class="toc-text">3. 限流器核心组件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E7%BD%91%E5%85%B3%E6%8B%A6%E6%88%AA%E5%99%A8"><span class="toc-number">4.4.</span> <span class="toc-text">4. 网关拦截器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E6%B3%A8%E5%86%8C%E6%8B%A6%E6%88%AA%E5%99%A8"><span class="toc-number">4.5.</span> <span class="toc-text">5. 注册拦截器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-Redis-%E9%85%8D%E7%BD%AE%E8%B0%83%E6%95%B4"><span class="toc-number">4.6.</span> <span class="toc-text">6. Redis 配置调整</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis-Key-%E8%AE%BE%E8%AE%A1"><span class="toc-number">5.</span> <span class="toc-text">Redis Key 设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BD%91%E5%85%B3%E5%B1%82%E4%BB%A4%E7%89%8C%E6%A1%B6%EF%BC%88Bucket4j%EF%BC%89"><span class="toc-number">5.1.</span> <span class="toc-text">网关层令牌桶（Bucket4j）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%B9%E6%B3%95%E5%B1%82%E6%BB%91%E5%8A%A8%E7%AA%97%E5%8F%A3%EF%BC%88%E4%BF%9D%E6%8C%81%E4%B8%8D%E5%8A%A8%EF%BC%89"><span class="toc-number">5.2.</span> <span class="toc-text">方法层滑动窗口（保持不动）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E7%A0%81%E4%BD%93%E7%B3%BB"><span class="toc-number">6.</span> <span class="toc-text">错误码体系</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%91%E6%8E%A7%E9%9B%86%E6%88%90%E5%BB%BA%E8%AE%AE"><span class="toc-number">7.</span> <span class="toc-text">监控集成建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">8.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">9.</span> <span class="toc-text">参考</span></a></li></ol></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 龙空灵</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"></div><canvas id="universe"></canvas><script defer src="/js/universe.js"></script><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="30" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_categories_card_injector_config(){
+    // 检查容器是否存在
+    var parent_div_git = document.getElementById('recent-posts');
+    // 如果容器不存在，则动态创建
+    if (!parent_div_git) {
+      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
+      // 创建新容器（默认插入到页面主体顶部）
+      parent_div_git = document.createElement('div');
+      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
+      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
+    }
+    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/">项目总结</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr">JAVA 后端</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/categories/学习记录/">学习记录</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr">玩转Win10</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/categories/AI/">AI</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">长篇小说连载</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/categories/Markdown/">Markdown</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">个人日记</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/categories/项目总结/Java后端/">Java后端</a><span class="categoryBar-list-count">6</span><span class="categoryBar-list-descr">诗词歌赋</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/">RAG</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">杂谈教程</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/计算机网络/">计算机网络</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/RAG/后端开发/">后端开发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/嵌入式开发/">嵌入式开发</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端开发/">后端开发</a><span class="categoryBar-list-count">4</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端开发/项目实战/">项目实战</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/技术/">技术</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端开发/高并发/">高并发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/技术/作业批改系统/">作业批改系统</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目汇报/">项目汇报</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目开发/">项目开发</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目开发/Spring-Boot/">Spring Boot</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目开发/Spring-Boot/Vue3/">Vue3</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目开发/Spring-Boot/Vue3/架构重构/">架构重构</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/工作日志/">工作日志</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/开发日志/">开发日志</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/">AI 工程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/面试复盘/">面试复盘</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+    console.log('已挂载 butterfly_categories_card');
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+  }
+  // 路径匹配逻辑（使用 startsWith）
+  if (location.pathname.startsWith('/categories/,/tags/,/archives/,/') || '/categories/,/tags/,/archives/,/' === 'all') {
+    butterfly_categories_card_injector_config();
+  }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><div class="js-pjax"><script async="async">var arr = document.getElementsByClassName('recent-post-item');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '1s');
+    arr[i].setAttribute('data-wow-delay', '0s');
+    arr[i].setAttribute('data-wow-offset', '100');
+    arr[i].setAttribute('data-wow-iteration', '1');
+  }</script><script async="async">var arr = document.getElementsByClassName('card-widget');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '');
+    arr[i].setAttribute('data-wow-delay', '');
+    arr[i].setAttribute('data-wow-offset', '');
+    arr[i].setAttribute('data-wow-iteration', '');
+  }</script></div><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow.min.js"></script><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow_init.js"></script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
