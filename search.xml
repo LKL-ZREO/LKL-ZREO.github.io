@@ -4,6 +4,47 @@
   
     
     <entry>
+      <title>AI 教学平台深度优化实录 — RAG 检索从 0% 到 60% 的全链路排查与修复</title>
+      <link href="/2026/06/08/2026-06-08-rag-system-optimization/"/>
+      <url>/2026/06/08/2026-06-08-rag-system-optimization/</url>
+      
+        <content type="html"><![CDATA[<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>今天对 AI 编程教学平台进行了一次系统性深度优化，覆盖了四个维度：</p><ol><li><strong>RAG 可观测性</strong>：从零搭建检索质量评估体系</li><li><strong>RAG 精准度</strong>：定位并修复两个数据链路 bug</li><li><strong>工程规范化</strong>：Prompt 模板化、前端状态管理、配置治理</li><li><strong>性能调优</strong>：Reranker 候选数控制、连接池调整</li></ol><p>核心成果：RAG 检索 Hit@3 从 <strong>0% → 60%</strong>，忠实度从 <strong>2.4 → 4.2</strong>。</p><hr><h2 id="一、RAG-评估体系搭建"><a href="#一、RAG-评估体系搭建" class="headerlink" title="一、RAG 评估体系搭建"></a>一、RAG 评估体系搭建</h2><h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><p>在此之前，RAG 检索效果完全靠”感觉”——改完 Prompt 不知道有没有变好，换模型不知道命中率涨没涨。简历上写 RAG 却拿不出任何量化数据。</p><h3 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h3><p>自建评估系统，不引入 Python 生态的 RAGAS（太重），全部放在 <code>src/test</code> 下零侵入：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">src/test/java/.../eval/</span><br><span class="line">├── RagEvaluator.java        # 评估运行器（两轮）</span><br><span class="line">├── EvalReport.java          # 报告 DTO</span><br><span class="line">├── EvalDataset.java         # JSON 数据集加载</span><br><span class="line">├── MetricCalculator.java    # Hit@K / MRR / Recall</span><br><span class="line">└── RagEvaluatorTest.java    # 测试入口</span><br><span class="line"></span><br><span class="line">src/test/resources/</span><br><span class="line">└── rag-eval-dataset.json    # 15 条 C 语言测试用例</span><br></pre></td></tr></table></figure><p><strong>第一轮</strong>：检索质量（不调 LLM，3 秒）— Hit@3 &#x2F; Hit@5 &#x2F; MRR &#x2F; Recall</p><p><strong>第二轮</strong>：生成质量（LLM-as-Judge，仅 5 条）— 忠实度 &#x2F; 相关性</p><p>首次跑出结果：<strong>Hit@3 &#x3D; 0%，忠实度 &#x3D; 2.4</strong>——LLM 在裸答，RAG 完全没起作用。</p><hr><h2 id="二、Hit-3-0-的全链路排查"><a href="#二、Hit-3-0-的全链路排查" class="headerlink" title="二、Hit@3 &#x3D; 0% 的全链路排查"></a>二、Hit@3 &#x3D; 0% 的全链路排查</h2><h3 id="排查-1：仪表盘数据污染"><a href="#排查-1：仪表盘数据污染" class="headerlink" title="排查 1：仪表盘数据污染"></a>排查 1：仪表盘数据污染</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[DEBUG] fused[2]: content=&quot;## 知识点掌握度\n- 其他: 100%&quot;</span><br></pre></td></tr></table></figure><p>学情统计数据被写进了 <code>document_chunk</code> 表，检索时混入了大量无关结果。</p><p><strong>根因</strong>：<code>DashboardRagServiceImpl.uploadDashboard()</code> 把结构化统计分块 + Embedding 化后存入向量库，但这些数据与知识问答场景完全无关。</p><p><strong>修法</strong>：删掉仪表盘 RAG 上传逻辑（数据应通过 MCP 工具直接从业务表查询），清理 <code>document_chunk</code> 中所有 <code>dashboard_%</code> 数据。</p><p>涉及文件：</p><ul><li><code>DashboardRagServiceImpl.java</code> — upload 改空操作</li><li><code>DashboardController.java</code> — 删 POST <code>/upload-to-rag</code> + GET <code>/check-rag-uploaded</code></li><li><code>VectorStoreService.java</code> — 删 <code>existsToday()</code></li><li><code>DashboardUploadScheduler.java</code> — 定时任务跳过</li><li><code>V12__cleanup_dashboard_chunks.sql</code> — 清理历史数据</li></ul><h3 id="排查-2：SmartChunkService-双-Bug"><a href="#排查-2：SmartChunkService-双-Bug" class="headerlink" title="排查 2：SmartChunkService 双 Bug"></a>排查 2：SmartChunkService 双 Bug</h3><p>修复后重新上传 C 语言文档，Hit@3 仍然是 0。查 DB 发现 92 个 chunk 里<strong>根本没有”标识符”那章</strong>——第一个 chunk 从 <code>int x=97；printf</code> 开始，前面四节全丢了。</p><p><strong>Bug 1：文档类型误判</strong></p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SmartChunkService.detectDocType()</span></span><br><span class="line"><span class="keyword">if</span> (content.contains(<span class="string">&quot;```&quot;</span>) || content.contains(<span class="string">&quot;def &quot;</span>)) &#123;</span><br><span class="line">    <span class="keyword">return</span> DocType.CODE;  <span class="comment">// 误判！C 语言教材含代码块但本质是 Markdown</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p><code>```C语言最重要的知识点</code> 被检测为代码块标记，整篇文档被判为 CODE 类型，走了 <code>splitByCodeStructure</code> 而非 <code>splitByMarkdownHeaders</code>。</p><p><strong>修法</strong>：Markdown 标题 <code>#</code> &#x2F; <code>##</code> 优先匹配，优先级高于代码块。</p><p><strong>Bug 2：首个匹配前文本被丢弃</strong></p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// splitCodeByFunctions()</span></span><br><span class="line"><span class="keyword">while</span> (matcher.find()) &#123;</span><br><span class="line">    <span class="keyword">if</span> (lastEnd &gt; <span class="number">0</span>) &#123;  <span class="comment">// ← 第一个匹配时 lastEnd=0，跳过！</span></span><br><span class="line">        functions.add(code.substring(lastEnd, matcher.start()));</span><br><span class="line">    &#125;</span><br><span class="line">    lastEnd = matcher.start();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>文档开头（第一节基础认识、第二节 vc++、第三节标识符）不包含任何 <code>void|int|static</code> 函数头模式。第一个匹配是 <code>int x=97；printf...</code>，此时 <code>lastEnd=0</code>，<code>if (lastEnd &gt; 0)</code> 为 false——<strong>标识符那章被静默丢弃</strong>。</p><p><strong>修法</strong>：删掉 <code>if (lastEnd &gt; 0)</code> 条件，保留第一个匹配前的所有文本。</p><p>修复后重传文档，标识符章节终于入库。再次评估：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Hit@3: 80.0%  Hit@5: 80.0%  MRR: 0.644</span><br><span class="line">忠实度: 4.2  相关性: 4.8</span><br></pre></td></tr></table></figure><hr><h2 id="三、Reranker-耗时优化"><a href="#三、Reranker-耗时优化" class="headerlink" title="三、Reranker 耗时优化"></a>三、Reranker 耗时优化</h2><p>Reranker 平均耗时从 982ms 涨到 5446ms——因为 TOP_K 从 10 调到 30 后，Reranker 需要逐条 Cross-Encoder 推理全部 ~20 个候选 chunk，每条 270ms。</p><p><strong>修法</strong>：仅对 RRF 融合后的 Top-15 做精排，砍掉排名靠后的低价值候选。</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">调整前：20条 × 270ms = 5446ms → Hit@3 = 80%</span><br><span class="line">调整后：15条 × 270ms ≈ 4000ms → Hit@3 = 60%</span><br></pre></td></tr></table></figure><p>结论：Hit@3 微降至 60%（15 条候选切掉了一些正确答案），但 Reranker 耗时可控。要进一步提升需要换更强的 Embedding 模型（bge-large 1024 维）。</p><hr><h2 id="四、Prompt-模板化"><a href="#四、Prompt-模板化" class="headerlink" title="四、Prompt 模板化"></a>四、Prompt 模板化</h2><p>将散落在 3 个 Java 文件中的硬编码 Prompt 抽到 <code>resource/prompts/</code> 目录：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">prompts/</span><br><span class="line">├── grading-system.txt      # 作业批改系统指令</span><br><span class="line">├── query-rewrite.txt       # Query 改写模板</span><br><span class="line">├── teaching-plan.txt       # 教案生成 HTML 模板</span><br><span class="line">├── judge-faithfulness.txt  # LLM 忠实度评分</span><br><span class="line">└── judge-relevance.txt     # LLM 相关性评分</span><br></pre></td></tr></table></figure><p>新建 <code>PromptLoader</code> 工具类，使用 Spring <code>ClassPathResource</code> 加载，模板变量用 <code>&#123;&#123;key&#125;&#125;</code> 占位符替换。</p><p><strong>好处</strong>：调 Prompt 不用动 Java 代码、不需要重新编译，未来支持 A&#x2F;B 测试只需切文件名。</p><hr><h2 id="五、ONNX-模型路径配置化"><a href="#五、ONNX-模型路径配置化" class="headerlink" title="五、ONNX 模型路径配置化"></a>五、ONNX 模型路径配置化</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 改前：Windows 绝对路径硬编码</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Path</span> <span class="variable">MODEL_DIR</span> <span class="operator">=</span> Path.of(<span class="string">&quot;E:\\bge-reranker-base\\dir&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 改后：从配置文件读取</span></span><br><span class="line"><span class="meta">@Value(&quot;$&#123;app.ai.reranker.model-dir&#125;&quot;)</span></span><br><span class="line"><span class="keyword">private</span> String modelDir;</span><br></pre></td></tr></table></figure><figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># application.properties</span></span><br><span class="line"><span class="attr">app.ai.reranker.model-dir</span>=<span class="string">$&#123;user.home&#125;/.djl/models/bge-reranker-base</span></span><br></pre></td></tr></table></figure><p>跨平台无感知，Docker 容器通过挂载 <code>djl_models</code> volume 自动映射。</p><hr><h2 id="六、前端状态管理规范化"><a href="#六、前端状态管理规范化" class="headerlink" title="六、前端状态管理规范化"></a>六、前端状态管理规范化</h2><p>创建 <code>stores/class.ts</code> — Pinia 班级 Store，5 分钟缓存：</p><figure class="highlight typescript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">export</span> <span class="keyword">const</span> useClassStore = <span class="title function_">defineStore</span>(<span class="string">&#x27;class&#x27;</span>, <span class="function">() =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> currentClassId = ref&lt;<span class="built_in">number</span> | <span class="literal">null</span>&gt;(<span class="literal">null</span>)</span><br><span class="line">    <span class="keyword">const</span> classList = ref&lt;<span class="title class_">ClassInfo</span>[]&gt;([])</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">function</span> <span class="title function_">fetchClassList</span>(<span class="params"></span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="title function_">isExpired</span>() &amp;&amp; classList.<span class="property">value</span>.<span class="property">length</span> &gt; <span class="number">0</span>) <span class="keyword">return</span> classList.<span class="property">value</span></span><br><span class="line">        <span class="keyword">const</span> res = <span class="keyword">await</span> request.<span class="title function_">get</span>(<span class="string">&#x27;/dashboard/classes&#x27;</span>)</span><br><span class="line">        classList.<span class="property">value</span> = res?.<span class="property">data</span>?.<span class="property">data</span> ?? []</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure><p>PageFour、PageFive、TaskDetail 全部接入，页面切换不再重复请求班级列表。</p><hr><h2 id="七、其他优化"><a href="#七、其他优化" class="headerlink" title="七、其他优化"></a>七、其他优化</h2><ul><li>HikariCP 连接池：20 → 30，适配异步消费者场景</li><li>安全配置：<code>/api/homework/**</code> 保持公开（学生免登录提交），但 <code>POST /submit</code> + <code>POST /bind-qq</code> 由 Bucket4j 限流兜底</li><li>删除代码路径：<code>existsToday()</code>、仪表盘 RAG 上传、<code>check-rag-uploaded</code></li></ul><hr><h2 id="最终数据"><a href="#最终数据" class="headerlink" title="最终数据"></a>最终数据</h2><table><thead><tr><th align="left">指标</th><th align="right">优化前</th><th align="right">优化后</th></tr></thead><tbody><tr><td align="left">Hit@3</td><td align="right">0%</td><td align="right"><strong>60%</strong></td></tr><tr><td align="left">Hit@5</td><td align="right">0%</td><td align="right"><strong>66.7%</strong></td></tr><tr><td align="left">MRR</td><td align="right">0.000</td><td align="right"><strong>0.524</strong></td></tr><tr><td align="left">忠实度</td><td align="right">2.4</td><td align="right"><strong>4.2</strong></td></tr><tr><td align="left">相关性</td><td align="right">5.0</td><td align="right"><strong>4.8</strong></td></tr><tr><td align="left">Reranker 耗时</td><td align="right">982ms</td><td align="right">514ms</td></tr><tr><td align="left">向量检索</td><td align="right">—</td><td align="right">14.5ms</td></tr></tbody></table><hr><h2 id="待办"><a href="#待办" class="headerlink" title="待办"></a>待办</h2><ol><li>核心链路单元测试（RAG 检索、批改、限流）</li><li>换更强大的 Embedding 模型（bge-large 1024 维），进一步提升 Hit@3 至 80%+</li><li>前端请求去重（防连点重复提交）</li><li>LM 并发 Semaphore 控制（虚拟线程无限打 LLM 的风险）</li></ol>]]></content>
+      
+      
+      <categories>
+          
+          <category> AI 工程 </category>
+          
+          <category> 后端开发 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Spring Boot </tag>
+            
+            <tag> 性能优化 </tag>
+            
+            <tag> RAG </tag>
+            
+            <tag> ONNX </tag>
+            
+            <tag> pgvector </tag>
+            
+            <tag> Vue3 </tag>
+            
+            <tag> Prompt Engineering </tag>
+            
+            <tag> Pinia </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>作品集 | AI 编程教学平台 — 从 RAG 到 Agentic RAG 的全栈实战</title>
       <link href="/2026/06/08/portfolio-ai-teaching-platform/"/>
       <url>/2026/06/08/portfolio-ai-teaching-platform/</url>
@@ -15,26 +56,28 @@
           
           <category> 作品集 </category>
           
+          <category> 作品集 </category>
+          
       </categories>
       
       
         <tags>
             
+            <tag> Spring Boot </tag>
+            
             <tag> RAG </tag>
             
             <tag> ONNX </tag>
-            
-            <tag> Spring Boot </tag>
-            
-            <tag> Vue3 </tag>
-            
-            <tag> LangChain4j </tag>
             
             <tag> pgvector </tag>
             
             <tag> Agentic RAG </tag>
             
             <tag> MCP </tag>
+            
+            <tag> LangChain4j </tag>
+            
+            <tag> Vue3 </tag>
             
             <tag> 作品集 </tag>
             
@@ -65,11 +108,11 @@
       
         <tags>
             
+            <tag> Spring Boot </tag>
+            
             <tag> RAG </tag>
             
             <tag> ONNX </tag>
-            
-            <tag> Spring Boot </tag>
             
             <tag> Embedding </tag>
             
@@ -99,7 +142,9 @@
       
       <categories>
           
-          <category> 开发日志 </category>
+          <category> AI 工程 </category>
+          
+          <category> 后端开发 </category>
           
       </categories>
       
@@ -143,9 +188,9 @@
             
             <tag> Spring AI </tag>
             
-            <tag> AI </tag>
-            
             <tag> LangChain4j </tag>
+            
+            <tag> AI </tag>
             
             <tag> 踩坑日记 </tag>
             
@@ -165,16 +210,16 @@
       
       <categories>
           
-          <category> 工作日志 </category>
+          <category> AI 工程 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> RAG </tag>
-            
             <tag> Redis </tag>
+            
+            <tag> RAG </tag>
             
             <tag> SpringBoot </tag>
             
@@ -200,13 +245,7 @@
       
       <categories>
           
-          <category> 项目开发 </category>
-          
-          <category> Spring Boot </category>
-          
-          <category> Vue3 </category>
-          
-          <category> 架构重构 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
@@ -243,11 +282,7 @@
       
       <categories>
           
-          <category> 项目开发 </category>
-          
-          <category> Spring Boot </category>
-          
-          <category> Vue3 </category>
+          <category> AI 工程 </category>
           
       </categories>
       
@@ -289,11 +324,11 @@
       
         <tags>
             
+            <tag> Spring Boot </tag>
+            
             <tag> RAG </tag>
             
             <tag> 作业批改 </tag>
-            
-            <tag> Spring Boot </tag>
             
             <tag> AI </tag>
             
@@ -326,8 +361,6 @@
             
             <tag> Spring Boot </tag>
             
-            <tag> 后端 </tag>
-            
             <tag> Redis </tag>
             
             <tag> 限流 </tag>
@@ -337,6 +370,8 @@
             <tag> Redisson </tag>
             
             <tag> 高并发 </tag>
+            
+            <tag> 后端 </tag>
             
         </tags>
       
@@ -365,9 +400,9 @@
             
             <tag> 性能优化 </tag>
             
-            <tag> Spring AI </tag>
-            
             <tag> Redis </tag>
+            
+            <tag> Spring AI </tag>
             
             <tag> AOP </tag>
             
@@ -389,18 +424,16 @@
       
       <categories>
           
-          <category> 技术 </category>
-          
-          <category> 作业批改系统 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> OpenClaw </tag>
-            
             <tag> Spring Boot </tag>
+            
+            <tag> OpenClaw </tag>
             
             <tag> Java </tag>
             
@@ -437,15 +470,15 @@
       
         <tags>
             
-            <tag> OpenClaw </tag>
-            
-            <tag> OneBot </tag>
-            
             <tag> Spring Boot </tag>
             
             <tag> Redis Stream </tag>
             
+            <tag> OpenClaw </tag>
+            
             <tag> 性能优化 </tag>
+            
+            <tag> OneBot </tag>
             
             <tag> MyBatis-Plus </tag>
             
@@ -476,9 +509,9 @@
             
             <tag> ESP32 </tag>
             
-            <tag> BLE </tag>
-            
             <tag> NimBLE </tag>
+            
+            <tag> BLE </tag>
             
             <tag> 嵌入式 </tag>
             
@@ -509,9 +542,9 @@
             
             <tag> ESP32 </tag>
             
-            <tag> BLE </tag>
-            
             <tag> NimBLE </tag>
+            
+            <tag> BLE </tag>
             
             <tag> 嵌入式 </tag>
             
@@ -542,9 +575,9 @@
             
             <tag> ESP32 </tag>
             
-            <tag> BLE </tag>
-            
             <tag> NimBLE </tag>
+            
+            <tag> BLE </tag>
             
             <tag> 嵌入式 </tag>
             
@@ -564,9 +597,7 @@
       
       <categories>
           
-          <category> AI </category>
-          
-          <category> RAG </category>
+          <category> AI 工程 </category>
           
           <category> 后端开发 </category>
           
@@ -596,23 +627,23 @@
       <link href="/2026/05/12/2026-05-12-rag-system-upgrade/"/>
       <url>/2026/05/12/2026-05-12-rag-system-upgrade/</url>
       
-        <content type="html"><![CDATA[<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。</p><hr><h2 id="时间线"><a href="#时间线" class="headerlink" title="时间线"></a>时间线</h2><table><thead><tr><th>时间</th><th>事件</th></tr></thead><tbody><tr><td>10:09</td><td>发现 RAG 接口返回 <code>{&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}</code></td></tr><tr><td>11:00</td><td>定位根因：<code>SIMILARITY_THRESHOLD = 0.75</code> 对哈希向量过高</td></tr><tr><td>11:13</td><td>实现 RRF 双路混合检索</td></tr><tr><td>11:27</td><td>修复 SQL 拼接空格&#x2F;LIMIT 类型匹配</td></tr><tr><td>11:32</td><td>修复 <code>LIMIT</code> 参数类型</td></tr><tr><td>11:50</td><td>Gateway 重启导致 OneBot 断开</td></tr><tr><td>14:59</td><td>升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5</td></tr><tr><td>15:27</td><td>模型下载完成，512 维向量就绪</td></tr><tr><td>15:31</td><td>pgvector 列维度不匹配报错，改表后修复</td></tr><tr><td>15:40</td><td>检索精度被 C 语言文档淹没，Top-K 从 3 提到 6</td></tr></tbody></table><hr><h2 id="问题一：RAG-返回空结果"><a href="#问题一：RAG-返回空结果" class="headerlink" title="问题一：RAG 返回空结果"></a>问题一：RAG 返回空结果</h2><h3 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h3><p>调用 <code>POST /api/onebot/rag</code> 返回：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;enhancedMessage&quot;</span><span class="punctuation">:</span><span class="string">&quot;????&quot;</span><span class="punctuation">,</span><span class="attr">&quot;hasContext&quot;</span><span class="punctuation">:</span><span class="literal"><span class="keyword">false</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure><h3 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h3><ol><li>插件代码完整，RAG 调用链路正常</li><li>后端接口可通，但 <code>hasContext</code> 始终为 <code>false</code></li><li>数据库中确有文档数据</li></ol><h3 id="根因"><a href="#根因" class="headerlink" title="根因"></a>根因</h3><p><code>DocumentServiceImpl.java</code> 中设置了 <code>SIMILARITY_THRESHOLD = 0.75</code>，但 <code>EmbeddingService</code> 使用的是<strong>哈希词频稀疏向量</strong>：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 旧 EmbeddingService - 伪向量</span></span><br><span class="line"><span class="type">int</span> <span class="variable">idx</span> <span class="operator">=</span> Math.abs(keyword.hashCode()) % <span class="number">384</span>;</span><br><span class="line">vector[idx] += frequency;</span><br></pre></td></tr></table></figure><p>这种向量的余弦相似度通常在 0.05 ~ 0.3 之间，0.75 的阈值导致 <strong>100% 结果被过滤</strong>。</p><h3 id="修复"><a href="#修复" class="headerlink" title="修复"></a>修复</h3><p>去掉硬阈值，改用 RRF 双路融合排序（见下文）。</p><hr><h2 id="问题二：RRF-混合检索实现"><a href="#问题二：RRF-混合检索实现" class="headerlink" title="问题二：RRF 混合检索实现"></a>问题二：RRF 混合检索实现</h2><h3 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h3><p>采用业界通用的 <strong>Reciprocal Rank Fusion（RRF）</strong> 双路召回：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">查询</span><br><span class="line">  ├── 语义向量路（pgvector cosine distance）</span><br><span class="line">  ├── 关键词路（ILIKE 匹配计数）</span><br><span class="line">  └── RRF 融合 → Top-K</span><br></pre></td></tr></table></figure><h3 id="RRF-公式"><a href="#RRF-公式" class="headerlink" title="RRF 公式"></a>RRF 公式</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RRF_score(doc) = Σ 1 / (k + rank_i)</span><br><span class="line">k = 60（Elasticsearch 默认值）</span><br></pre></td></tr></table></figure><p>某 chunk 在语义路排第 1、关键词路排第 5，则：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RRF = 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318</span><br></pre></td></tr></table></figure><h3 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h3><p><strong>VectorStoreService</strong> 新增关键词检索：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> List&lt;ScoredChunk&gt; <span class="title function_">keywordSearch</span><span class="params">(String query, <span class="type">int</span> topK)</span> &#123;</span><br><span class="line">    Set&lt;String&gt; keywords = extractKeywords(query);</span><br><span class="line">    <span class="comment">// 动态构建 SQL：ILIKE 匹配计数</span></span><br><span class="line">    <span class="type">StringBuilder</span> <span class="variable">sql</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>(<span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">        SELECT ..., (CASE WHEN content ILIKE ? THEN 1 ELSE 0 END + ...) AS keyword_score</span></span><br><span class="line"><span class="string">        FROM document_chunk WHERE ...</span></span><br><span class="line"><span class="string">        ORDER BY keyword_score DESC LIMIT ?</span></span><br><span class="line"><span class="string">        &quot;&quot;&quot;</span>);</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p><strong>DocumentServiceImpl</strong> RRF 融合：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> List&lt;String&gt; <span class="title function_">searchRelevantContent</span><span class="params">(String query, <span class="type">int</span> topK)</span> &#123;</span><br><span class="line">    <span class="comment">// 1. 语义向量检索</span></span><br><span class="line">    <span class="type">float</span>[] queryEmbedding = embeddingService.embedQuery(query);</span><br><span class="line">    List&lt;DocumentChunk&gt; vectorResults = vectorStoreService.similaritySearch(...);</span><br><span class="line">    Map&lt;String, Double&gt; semanticRanks = rankByCosine(queryEmbedding, vectorResults);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 2. 关键词检索</span></span><br><span class="line">    List&lt;VectorStoreService.ScoredChunk&gt; keywordResults = vectorStoreService.keywordSearch(...);</span><br><span class="line">    Map&lt;String, Double&gt; keywordRanks = rankKeyword(keywordResults);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 3. RRF 融合</span></span><br><span class="line">    Set&lt;String&gt; allChunkIds = <span class="keyword">new</span> <span class="title class_">LinkedHashSet</span>&lt;&gt;();</span><br><span class="line">    <span class="comment">// ... 按 RRF 得分排序取 Top-K</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><hr><h2 id="问题三：SQL-拼接坑"><a href="#问题三：SQL-拼接坑" class="headerlink" title="问题三：SQL 拼接坑"></a>问题三：SQL 拼接坑</h2><h3 id="坑-1：Java-Text-Block-吃掉行尾空格"><a href="#坑-1：Java-Text-Block-吃掉行尾空格" class="headerlink" title="坑 1：Java Text Block 吃掉行尾空格"></a>坑 1：Java Text Block 吃掉行尾空格</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sql.append(<span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    FROM document_chunk</span></span><br><span class="line"><span class="string">    WHERE &quot;&quot;&quot;</span>);</span><br><span class="line"><span class="comment">// 生成: &quot;WHEREContent&quot; — 粘在一起！</span></span><br></pre></td></tr></table></figure><p><strong>修：</strong> Java 15+ 用 <code>\s</code> 显式保留空格：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sql.append(<span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    FROM document_chunk</span></span><br><span class="line"><span class="string">    WHERE\s&quot;&quot;&quot;</span>);</span><br><span class="line"><span class="comment">// 生成: &quot;WHERE content&quot; — 正确</span></span><br></pre></td></tr></table></figure><h3 id="坑-2：PostgreSQL-LIMIT-类型"><a href="#坑-2：PostgreSQL-LIMIT-类型" class="headerlink" title="坑 2：PostgreSQL LIMIT 类型"></a>坑 2：PostgreSQL <code>LIMIT</code> 类型</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; params = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">params.add(String.valueOf(topK));</span><br><span class="line"><span class="comment">// Pg: &quot;LIMIT 的参数必需是类型 bigint, 而不是类型 character varying&quot;</span></span><br></pre></td></tr></table></figure><p><strong>修：</strong> 改成 <code>List&lt;Object&gt;</code>，直接传 <code>int</code>：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Object&gt; params = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">params.add(topK); <span class="comment">// 原生 int → JDBC 自动映射 bigint</span></span><br></pre></td></tr></table></figure><hr><h2 id="问题四：哈希向量升级到-ONNX-真实嵌入"><a href="#问题四：哈希向量升级到-ONNX-真实嵌入" class="headerlink" title="问题四：哈希向量升级到 ONNX 真实嵌入"></a>问题四：哈希向量升级到 ONNX 真实嵌入</h2><h3 id="方案-1"><a href="#方案-1" class="headerlink" title="方案"></a>方案</h3><ul><li><strong>模型：</strong> <code>BAAI/bge-small-zh-v1.5</code>（中文优化，512 维）</li><li><strong>引擎：</strong> DJL ONNX Runtime（纯 CPU，无需 PyTorch）</li><li><strong>下载：</strong> hf-mirror.com（国内镜像），~90MB</li><li><strong>本地路径：</strong> <code>%USERPROFILE%\.djl\models\BAAI_bge-small-zh-v1.5\</code></li></ul><h3 id="关键代码"><a href="#关键代码" class="headerlink" title="关键代码"></a>关键代码</h3><p><strong>EmbeddingService：</strong></p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@PostConstruct</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">Path</span> <span class="variable">modelDir</span> <span class="operator">=</span> Path.of(System.getProperty(<span class="string">&quot;user.home&quot;</span>), </span><br><span class="line">        <span class="string">&quot;.djl&quot;</span>, <span class="string">&quot;models&quot;</span>, <span class="string">&quot;BAAI_bge-small-zh-v1.5&quot;</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 优先本地加载</span></span><br><span class="line">    <span class="keyword">if</span> (Files.exists(modelDir.resolve(<span class="string">&quot;model.onnx&quot;</span>))) &#123;</span><br><span class="line">        loadFromLocal(modelDir);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 自动下载（具备断网回退哈希模式）</span></span><br><span class="line">    downloadModel(<span class="string">&quot;https://hf-mirror.com&quot;</span>, modelDir);</span><br><span class="line">    loadFromLocal(modelDir);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p><strong>BGE Query 指令前缀：</strong></p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Query 侧：加指令前缀</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">float</span>[] embedQuery(String query) &#123;</span><br><span class="line">    <span class="keyword">return</span> predictor.predict(<span class="string">&quot;为这个句子生成表示以用于检索相关文章：&quot;</span> + query);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Document 侧：不加前缀</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">float</span>[] embedDocument(String text) &#123;</span><br><span class="line">    <span class="keyword">return</span> predictor.predict(text);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>这是 BGE 官方推荐的最佳实践，前缀能提升检索精度 5-10%。</p><p><strong>OnnxEmbeddingTranslator：</strong></p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> NDList <span class="title function_">processInput</span><span class="params">(TranslatorContext ctx, String input)</span> &#123;</span><br><span class="line">    <span class="type">Encoding</span> <span class="variable">encoding</span> <span class="operator">=</span> tokenizer.encode(input);</span><br><span class="line">    <span class="type">NDArray</span> <span class="variable">ids</span> <span class="operator">=</span> manager.create(encoding.getIds()).reshape(<span class="number">1</span>, seqLen);</span><br><span class="line">    <span class="type">NDArray</span> <span class="variable">mask</span> <span class="operator">=</span> manager.create(encoding.getAttentionMask()).reshape(<span class="number">1</span>, seqLen);</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">NDList</span>(ids, mask);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">float</span>[] processOutput(TranslatorContext ctx, NDList list) &#123;</span><br><span class="line">    <span class="type">NDArray</span> <span class="variable">hidden</span> <span class="operator">=</span> list.get(<span class="number">0</span>);</span><br><span class="line">    <span class="comment">// Mean pooling with attention mask</span></span><br><span class="line">    <span class="type">NDArray</span> <span class="variable">pooled</span> <span class="operator">=</span> hidden.mul(maskExpanded).sum(axis).div(maskSum);</span><br><span class="line">    <span class="keyword">return</span> l2Normalize(pooled.toFloatArray());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="pengine-依赖"><a href="#pengine-依赖" class="headerlink" title="pengine 依赖"></a>pengine 依赖</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>ai.djl.onnxruntime<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>onnxruntime-engine<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>0.28.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure><h3 id="下载脚本"><a href="#下载脚本" class="headerlink" title="下载脚本"></a>下载脚本</h3><figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$dir</span> = <span class="string">&quot;<span class="variable">$env:USERPROFILE</span>\.djl\models\BAAI_bge-small-zh-v1.5&quot;</span></span><br><span class="line">mkdir <span class="literal">-Force</span> <span class="variable">$dir</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 用 Xenova 转换版（含 onnx/ 目录）</span></span><br><span class="line"><span class="variable">$mirror</span> = <span class="string">&quot;https://hf-mirror.com&quot;</span></span><br><span class="line"><span class="variable">$base</span> = <span class="string">&quot;<span class="variable">$mirror</span>/Xenova/bge-small-zh-v1.5/resolve/main&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 下载 onnx 目录下的模型</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/onnx/model.onnx&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\model.onnx&quot;</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/onnx/model_int8.onnx&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\model_int8.onnx&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 下载分词器与配置</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/tokenizer.json&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\tokenizer.json&quot;</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/tokenizer_config.json&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\tokenizer_config.json&quot;</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/special_tokens_map.json&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\special_tokens_map.json&quot;</span></span><br><span class="line"><span class="built_in">Invoke-WebRequest</span> <span class="literal">-Uri</span> <span class="string">&quot;<span class="variable">$base</span>/config.json&quot;</span> <span class="literal">-OutFile</span> <span class="string">&quot;<span class="variable">$dir</span>\config.json&quot;</span></span><br></pre></td></tr></table></figure><hr><h2 id="问题五：pgvector-维度不匹配"><a href="#问题五：pgvector-维度不匹配" class="headerlink" title="问题五：pgvector 维度不匹配"></a>问题五：pgvector 维度不匹配</h2><h3 id="现象-1"><a href="#现象-1" class="headerlink" title="现象"></a>现象</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">expected 384 dimensions, not 512</span><br></pre></td></tr></table></figure><h3 id="修复-1"><a href="#修复-1" class="headerlink" title="修复"></a>修复</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER TABLE</span> document_chunk <span class="keyword">ALTER</span> <span class="keyword">COLUMN</span> embedding_vec TYPE vector(<span class="number">512</span>);</span><br></pre></td></tr></table></figure><h3 id="注意"><a href="#注意" class="headerlink" title="注意"></a>注意</h3><p>旧文档的哈希向量（384 维）与 ONNX 向量（512 维）语义空间完全不同，需<strong>删除旧文档并重新上传</strong>。</p><hr><h2 id="问题六：检索精度被噪音淹没"><a href="#问题六：检索精度被噪音淹没" class="headerlink" title="问题六：检索精度被噪音淹没"></a>问题六：检索精度被噪音淹没</h2><h3 id="现象-2"><a href="#现象-2" class="headerlink" title="现象"></a>现象</h3><p>LLM 回复：”文档只有标题和导出时间，但实际内容都是 C 语言知识点整理”</p><h3 id="排查-1"><a href="#排查-1" class="headerlink" title="排查"></a>排查</h3><p>数据库中有 94 个 C 语言文档 chunk + 6 个仪表盘 chunk，比例 15:1。即使 ONNX 模型精度足够，Top-K&#x3D;3 时，仪表盘的有效数据被 C 语言 chunk 挤出。</p><h3 id="修复-2"><a href="#修复-2" class="headerlink" title="修复"></a>修复</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// OnebotRagController.java</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">RAG_TOP_K</span> <span class="operator">=</span> <span class="number">6</span>; <span class="comment">// 从 3 提到 6</span></span><br></pre></td></tr></table></figure><h3 id="建议"><a href="#建议" class="headerlink" title="建议"></a>建议</h3><p>生产环境删除调试用的 C 语言文档，让业务数据独占知识库。</p><hr><h2 id="最终架构"><a href="#最终架构" class="headerlink" title="最终架构"></a>最终架构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">QQ 消息</span><br><span class="line">  ↓</span><br><span class="line">OneBot 插件（OpenClaw）</span><br><span class="line">  ↓ POST /api/onebot/rag</span><br><span class="line">RAG Controller</span><br><span class="line">  ↓ embedQuery()</span><br><span class="line">EmbeddingService (bge-small-zh-v1.5 / ONNX)</span><br><span class="line">  ↓ 512-dim 语义向量</span><br><span class="line">  ├── pgvector cosine search</span><br><span class="line">  ├── ILIKE keyword search</span><br><span class="line">  └── RRF 融合 → Top-6 chunks</span><br><span class="line">  ↓ 组装增强 prompt</span><br><span class="line">OpenClaw Agent (deepseek-v4-flash)</span><br><span class="line">  ↓ 生成回复</span><br><span class="line">QQ 消息</span><br></pre></td></tr></table></figure><hr><h2 id="核心文件变更清单"><a href="#核心文件变更清单" class="headerlink" title="核心文件变更清单"></a>核心文件变更清单</h2><table><thead><tr><th>文件</th><th>改动</th></tr></thead><tbody><tr><td><code>pom.xml</code></td><td>新增 <code>onnxruntime-engine</code> 依赖</td></tr><tr><td><code>EmbeddingService.java</code></td><td>重写：ONNX 模型加载 + BGE 指令前缀 + 哈希回退</td></tr><tr><td><code>OnnxEmbeddingTranslator.java</code></td><td>新增：tokenizer → ONNX 推理 → mean pooling</td></tr><tr><td><code>VectorStoreService.java</code></td><td>新增 <code>keywordSearch()</code>、暴露 <code>ScoredChunk</code></td></tr><tr><td><code>DocumentServiceImpl.java</code></td><td>重写 <code>searchRelevantContent()</code>：RRF 双路融合</td></tr><tr><td><code>OnebotRagController.java</code></td><td><code>RAG_TOP_K</code> 3 → 6</td></tr></tbody></table><hr><h2 id="经验教训"><a href="#经验教训" class="headerlink" title="经验教训"></a>经验教训</h2><ol><li><strong>Java Text Block 的 <code>\s</code> 陷阱</strong>——行尾空格默认被吃掉，SQL 拼接务必用 <code>\s</code> 或改用普通字符串</li><li><strong>PostgreSQL <code>LIMIT ?</code> 参数必须是 <code>int</code></strong>——<code>String.valueOf()</code> 会导致类型错误</li><li><strong>BGE 模型 query&#x2F;document 侧需要不同处理</strong>——query 加指令前缀，document 不加</li><li><strong>知识库噪音比嵌入精度更致命</strong>——94 个不相关 chunk 足以淹没 6 个相关 chunk，管好入库质量比调参更重要</li><li><strong>Gateway 重启 &#x3D; OneBot 重连</strong>——确保 Napcat 进程在 Gateway 之前启动，或配置自动拉起</li></ol>]]></content>
+        <content type="html"><![CDATA[<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。</p><h2 id="时间线"><a href="#时间线" class="headerlink" title="时间线"></a>时间线</h2><table><thead><tr><th>时间</th><th>事件</th></tr></thead><tbody><tr><td>10:09</td><td>发现 RAG 接口返回 <code>{&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}</code></td></tr><tr><td>11:00</td><td>定位根因：SIMILARITY_THRESHOLD &#x3D; 0.75 对哈希向量过高</td></tr><tr><td>11:13</td><td>实现 RRF 双路混合检索</td></tr><tr><td>11:27</td><td>修复 SQL 拼接空格&#x2F;LIMIT 类型匹配</td></tr><tr><td>11:32</td><td>修复 LIMIT 参数类型</td></tr><tr><td>11:50</td><td>Gateway 重启导致 OneBot 断开</td></tr><tr><td>14:59</td><td>升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5</td></tr><tr><td>15:27</td><td>模型下载完成，512 维向量就绪</td></tr><tr><td>15:31</td><td>pgvector 列维度不匹配报错，改表后修复</td></tr><tr><td>15:40</td><td>检索精度被 C 语言文档淹没，Top-K 从 3 提到 6</td></tr></tbody></table><h2 id="问题一：RAG-返回空结果"><a href="#问题一：RAG-返回空结果" class="headerlink" title="问题一：RAG 返回空结果"></a>问题一：RAG 返回空结果</h2><h3 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h3><p>调用 <code>POST /api/onebot/rag</code> 返回：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;enhancedMessage&quot;</span><span class="punctuation">:</span><span class="string">&quot;????&quot;</span><span class="punctuation">,</span><span class="attr">&quot;hasContext&quot;</span><span class="punctuation">:</span><span class="literal"><span class="keyword">false</span></span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure><h3 id="根因"><a href="#根因" class="headerlink" title="根因"></a>根因</h3><p><code>DocumentServiceImpl.java</code> 中设置了 <code>SIMILARITY_THRESHOLD = 0.75</code>，但 <code>EmbeddingService</code> 使用的是哈希词频稀疏向量：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 旧 EmbeddingService - 伪向量</span></span><br><span class="line"><span class="type">int</span> <span class="variable">idx</span> <span class="operator">=</span> Math.abs(keyword.hashCode()) % <span class="number">384</span>;</span><br><span class="line">vector[idx] += frequency;</span><br></pre></td></tr></table></figure><p>这种向量的余弦相似度通常在 0.05 ~ 0.3 之间，0.75 的阈值导致 100% 结果被过滤。</p><h3 id="修复"><a href="#修复" class="headerlink" title="修复"></a>修复</h3><p>去掉硬阈值，改用 RRF 双路融合排序（见下文）。</p><h2 id="问题二：RRF-混合检索实现"><a href="#问题二：RRF-混合检索实现" class="headerlink" title="问题二：RRF 混合检索实现"></a>问题二：RRF 混合检索实现</h2><h3 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h3><p>采用业界通用的 Reciprocal Rank Fusion（RRF）双路召回：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">查询</span><br><span class="line"> ├── 语义向量路（pgvector cosine distance）</span><br><span class="line"> ├── 关键词路（ILIKE 匹配计数）</span><br><span class="line"> └── RRF 融合 → Top-K</span><br></pre></td></tr></table></figure><h3 id="RRF-公式"><a href="#RRF-公式" class="headerlink" title="RRF 公式"></a>RRF 公式</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RRF_score(doc) = Σ 1 / (k + rank_i)</span><br><span class="line">k = 60（Elasticsearch 默认值）</span><br></pre></td></tr></table></figure><p>某 chunk 在语义路排第 1、关键词路排第 5：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RRF = 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318</span><br></pre></td></tr></table></figure><h2 id="问题三：SQL-拼接坑"><a href="#问题三：SQL-拼接坑" class="headerlink" title="问题三：SQL 拼接坑"></a>问题三：SQL 拼接坑</h2><h3 id="坑-1：Java-Text-Block-吃掉行尾空格"><a href="#坑-1：Java-Text-Block-吃掉行尾空格" class="headerlink" title="坑 1：Java Text Block 吃掉行尾空格"></a>坑 1：Java Text Block 吃掉行尾空格</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sql.append(<span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string"> FROM document_chunk</span></span><br><span class="line"><span class="string"> WHERE &quot;&quot;&quot;</span>);</span><br><span class="line"><span class="comment">// 生成: &quot;WHEREContent&quot; — 粘在一起！</span></span><br></pre></td></tr></table></figure><p>修：Java 15+ 用 <code>\s</code> 显式保留空格：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sql.append(<span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string"> FROM document_chunk</span></span><br><span class="line"><span class="string"> WHERE\s&quot;&quot;&quot;</span>);</span><br><span class="line"><span class="comment">// 生成: &quot;WHERE content&quot; — 正确</span></span><br></pre></td></tr></table></figure><h3 id="坑-2：PostgreSQL-LIMIT-类型"><a href="#坑-2：PostgreSQL-LIMIT-类型" class="headerlink" title="坑 2：PostgreSQL LIMIT 类型"></a>坑 2：PostgreSQL LIMIT 类型</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">List&lt;String&gt; params = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">params.add(String.valueOf(topK));</span><br><span class="line"><span class="comment">// Pg: &quot;LIMIT 的参数必需是类型 bigint, 而不是类型 character varying&quot;</span></span><br></pre></td></tr></table></figure><p>修：改成 <code>List&lt;Object&gt;</code>，直接传 int：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">List&lt;Object&gt; params = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">params.add(topK); <span class="comment">// 原生 int → JDBC 自动映射 bigint</span></span><br></pre></td></tr></table></figure><h2 id="问题四：哈希向量升级到-ONNX-真实嵌入"><a href="#问题四：哈希向量升级到-ONNX-真实嵌入" class="headerlink" title="问题四：哈希向量升级到 ONNX 真实嵌入"></a>问题四：哈希向量升级到 ONNX 真实嵌入</h2><h3 id="方案-1"><a href="#方案-1" class="headerlink" title="方案"></a>方案</h3><ul><li>模型：BAAI&#x2F;bge-small-zh-v1.5（中文优化，512 维）</li><li>引擎：DJL ONNX Runtime（纯 CPU，无需 PyTorch）</li><li>下载：hf-mirror.com（国内镜像），~90MB</li><li>本地路径：<code>%USERPROFILE%\.djl\models\BAAI_bge-small-zh-v1.5\</code></li></ul><p>BGE Query 指令前缀：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Query 侧：加指令前缀</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">float</span>[] embedQuery(String query) &#123;</span><br><span class="line">    <span class="keyword">return</span> predictor.predict(<span class="string">&quot;为这个句子生成表示以用于检索相关文章：&quot;</span> + query);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Document 侧：不加前缀</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">float</span>[] embedDocument(String text) &#123;</span><br><span class="line">    <span class="keyword">return</span> predictor.predict(text);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>这是 BGE 官方推荐的最佳实践，前缀能提升检索精度 5-10%。</p><h2 id="问题五：pgvector-维度不匹配"><a href="#问题五：pgvector-维度不匹配" class="headerlink" title="问题五：pgvector 维度不匹配"></a>问题五：pgvector 维度不匹配</h2><h3 id="现象-1"><a href="#现象-1" class="headerlink" title="现象"></a>现象</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">expected 384 dimensions, not 512</span><br></pre></td></tr></table></figure><h3 id="修复-1"><a href="#修复-1" class="headerlink" title="修复"></a>修复</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER TABLE</span> document_chunk <span class="keyword">ALTER</span> <span class="keyword">COLUMN</span> embedding_vec TYPE vector(<span class="number">512</span>);</span><br></pre></td></tr></table></figure><p>注意：旧文档的哈希向量（384 维）与 ONNX 向量（512 维）语义空间完全不同，需删除旧文档并重新上传。</p><h2 id="问题六：检索精度被噪音淹没"><a href="#问题六：检索精度被噪音淹没" class="headerlink" title="问题六：检索精度被噪音淹没"></a>问题六：检索精度被噪音淹没</h2><p>数据库中有 94 个 C 语言文档 chunk + 6 个仪表盘 chunk，比例 15:1。即使 ONNX 模型精度足够，Top-K&#x3D;3 时，仪表盘的有效数据被 C 语言 chunk 挤出。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// OnebotRagController.java</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">RAG_TOP_K</span> <span class="operator">=</span> <span class="number">6</span>; <span class="comment">// 从 3 提到 6</span></span><br></pre></td></tr></table></figure><h2 id="最终架构"><a href="#最终架构" class="headerlink" title="最终架构"></a>最终架构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">QQ 消息</span><br><span class="line"> ↓</span><br><span class="line">OneBot 插件（OpenClaw）</span><br><span class="line"> ↓ POST /api/onebot/rag</span><br><span class="line">RAG Controller</span><br><span class="line"> ↓ embedQuery()</span><br><span class="line">EmbeddingService (bge-small-zh-v1.5 / ONNX)</span><br><span class="line"> ↓ 512-dim 语义向量</span><br><span class="line"> ├── pgvector cosine search</span><br><span class="line"> ├── ILIKE keyword search</span><br><span class="line"> └── RRF 融合 → Top-6 chunks</span><br><span class="line"> ↓ 组装增强 prompt</span><br><span class="line">OpenClaw Agent (deepseek-v4-flash)</span><br><span class="line"> ↓ 生成回复</span><br><span class="line">QQ 消息</span><br></pre></td></tr></table></figure><h2 id="经验教训"><a href="#经验教训" class="headerlink" title="经验教训"></a>经验教训</h2><ul><li>Java Text Block 的 <code>\s</code> 陷阱——行尾空格默认被吃掉，SQL 拼接务必用 <code>\s</code> 或改用普通字符串</li><li>PostgreSQL <code>LIMIT ?</code> 参数必须是 int——<code>String.valueOf()</code> 会导致类型错误</li><li>BGE 模型 query&#x2F;document 侧需要不同处理——query 加指令前缀，document 不加</li><li>知识库噪音比嵌入精度更致命——94 个不相关 chunk 足以淹没 6 个相关 chunk，管好入库质量比调参更重要</li><li>Gateway 重启 &#x3D; OneBot 重连——确保 Napcat 进程在 Gateway 之前启动，或配置自动拉起</li></ul>]]></content>
       
       
       <categories>
           
-          <category> 项目总结 </category>
+          <category> AI 工程 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> RAG </tag>
-            
             <tag> OpenClaw </tag>
             
             <tag> OneBot </tag>
+            
+            <tag> RAG </tag>
             
             <tag> PostgreSQL </tag>
             
@@ -638,16 +669,16 @@
       
       <categories>
           
-          <category> 项目总结 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> OneBot </tag>
-            
             <tag> Spring Boot </tag>
+            
+            <tag> OneBot </tag>
             
             <tag> Napcat </tag>
             
@@ -669,16 +700,16 @@
       
       <categories>
           
-          <category> 项目总结 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> PostgreSQL </tag>
-            
             <tag> Spring Boot </tag>
+            
+            <tag> PostgreSQL </tag>
             
             <tag> 全栈开发 </tag>
             
@@ -689,27 +720,27 @@
     
     
     <entry>
-      <title>作业批改系统开发日志 — 游客提交模式改造与Bug修复</title>
-      <link href="/2026/05/07/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%953/"/>
-      <url>/2026/05/07/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%953/</url>
+      <title>作业提交游客模式改造 — JSON 解析、重复提交与统计源修正</title>
+      <link href="/2026/05/07/homework-guest-submission-refactoring/"/>
+      <url>/2026/05/07/homework-guest-submission-refactoring/</url>
       
         <content type="html"><![CDATA[<h2 id="TL-DR"><a href="#TL-DR" class="headerlink" title="TL;DR"></a>TL;DR</h2><p>今天把作业提交从「必须注册登录」改成了「游客模式（文件名解析）」，同时修了一堆连环 bug，包括 JSON 解析、数据库约束、双重拦截、重复提交等。本文记录踩坑过程和修复思路。</p><hr><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>作业批改系统原先是老师端内部使用的，学生需要注册登录后才能提交作业。需求改成：<strong>学生通过文件名直接上传作业</strong>，无需注册登录。</p><p>文件名格式：<code>姓名_班级_作业名称.扩展名</code></p><hr><h2 id="问题-1：extractJsonFromMarkdown-提取不完整"><a href="#问题-1：extractJsonFromMarkdown-提取不完整" class="headerlink" title="问题 1：extractJsonFromMarkdown 提取不完整"></a>问题 1：extractJsonFromMarkdown 提取不完整</h2><h3 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h3><p>前端提交后，submission 表的 <code>totalScore</code> 为 null。数据库 INSERT 时 <code>total_score</code> 列没有值。</p><h3 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h3><p>OpenClaw 返回的响应包含 markdown 前缀文本 + <code>```json</code> 包裹的 JSON：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">根据批改作业助手的技能指南，我现在对...进行批改。</span><br><span class="line"></span><br><span class="line">```json</span><br><span class="line">&#123;&quot;totalScore&quot;: 72, ...&#125;</span><br></pre></td></tr></table></figure><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">旧版 `extractJsonFromMarkdown` 只去掉首尾 ``` 标记，**没有裁剪前缀文本**，导致 `ObjectMapper` 解析失败，走了 catch 分支只存了 `raw_response`。</span><br><span class="line"></span><br><span class="line">### 解决</span><br><span class="line"></span><br><span class="line">改进提取逻辑，先找到第一个 `&#123;` 和最后一个 `&#125;`，只提取 JSON 部分：</span><br><span class="line"></span><br><span class="line">```java</span><br><span class="line">private String extractJsonFromMarkdown(String text) &#123;</span><br><span class="line">    if (text == null) return null;</span><br><span class="line">    // 找到第一个 &#123; 和最后一个 &#125;</span><br><span class="line">    int start = text.indexOf(&#x27;&#123;&#x27;);</span><br><span class="line">    int end = text.lastIndexOf(&#x27;&#125;&#x27;);</span><br><span class="line">    if (start != -1 &amp;&amp; end &gt; start) &#123;</span><br><span class="line">        return text.substring(start, end + 1);</span><br><span class="line">    &#125;</span><br><span class="line">    return text;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><hr><h2 id="问题-2：knowledgePoints-未设置-status-默认值"><a href="#问题-2：knowledgePoints-未设置-status-默认值" class="headerlink" title="问题 2：knowledgePoints 未设置 status 默认值"></a>问题 2：knowledgePoints 未设置 status 默认值</h2><h3 id="现象-1"><a href="#现象-1" class="headerlink" title="现象"></a>现象</h3><p>OpenClaw 返回的 JSON 中 <code>knowledgePoints</code> 数组使用了 <code>status</code> 字段（值为 <code>&quot;掌握&quot;</code>、<code>&quot;薄弱&quot;</code> 等），但代码中 <code>saveKnowledgePoints</code> 没有处理这些值，导致批量插入时该字段为 null。</p><h3 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h3><p>在 <code>KnowledgeDTO</code> 中确认字段映射正确（JSON 中有 <code>status</code> 字段），代码直接使用 JSON 中的值。</p><hr><h2 id="问题-3：homework-knowledge-表-evaluation-id-非空约束"><a href="#问题-3：homework-knowledge-表-evaluation-id-非空约束" class="headerlink" title="问题 3：homework_knowledge 表 evaluation_id 非空约束"></a>问题 3：homework_knowledge 表 evaluation_id 非空约束</h2><h3 id="现象-2"><a href="#现象-2" class="headerlink" title="现象"></a>现象</h3><p>JSON 解析成功后执行 <code>saveSubmission</code>，插入 <code>submission</code> 成功，但在插入 <code>homework_knowledge</code> 时报错：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">null value in column &quot;evaluation_id&quot; of relation &quot;homework_knowledge&quot; violates not-null constraint</span><br></pre></td></tr></table></figure><p>新数据使用 <code>submission_id</code> 关联，不再依赖旧表的 <code>evaluation_id</code>。</p><h3 id="解决-1"><a href="#解决-1" class="headerlink" title="解决"></a>解决</h3><p>在 V7 migration 中添加：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER TABLE</span> homework_knowledge <span class="keyword">ALTER</span> <span class="keyword">COLUMN</span> evaluation_id <span class="keyword">DROP</span> <span class="keyword">NOT NULL</span>;</span><br></pre></td></tr></table></figure><p>这样新提交的知识点记录只传 <code>submission_id</code> 即可。</p><hr><h2 id="问题-4：前端的重复提交"><a href="#问题-4：前端的重复提交" class="headerlink" title="问题 4：前端的重复提交"></a>问题 4：前端的重复提交</h2><h3 id="现象-3"><a href="#现象-3" class="headerlink" title="现象"></a>现象</h3><p>用户在页面上点击了一次提交后觉得没反应，又点了一次，数据库出现两条相同记录：一条有分数，一条为 null（因为第一次成功，第二次的 knowledge 插入异常走了 catch 分支）。</p><h3 id="排查-1"><a href="#排查-1" class="headerlink" title="排查"></a>排查</h3><p><code>homework_knowledge</code> 表的 <code>evaluation_id</code> 字段有 NOT NULL 约束，但 V7 migration 只加了 submission_id 字段，没把 evaluation_id 改成可空。</p><h3 id="解决-2"><a href="#解决-2" class="headerlink" title="解决"></a>解决</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">DELETE</span> <span class="keyword">FROM</span> submission <span class="keyword">WHERE</span> total_score <span class="keyword">IS</span> <span class="keyword">NULL</span>;</span><br><span class="line"><span class="keyword">ALTER TABLE</span> homework_knowledge <span class="keyword">ALTER</span> <span class="keyword">COLUMN</span> evaluation_id <span class="keyword">DROP</span> <span class="keyword">NOT NULL</span>;</span><br></pre></td></tr></table></figure><hr><h2 id="问题-5：仪表盘学生数量统计源错误"><a href="#问题-5：仪表盘学生数量统计源错误" class="headerlink" title="问题 5：仪表盘学生数量统计源错误"></a>问题 5：仪表盘学生数量统计源错误</h2><h3 id="现象-4"><a href="#现象-4" class="headerlink" title="现象"></a>现象</h3><p>学生端作业提交成功后，仪表盘上显示的学生数量为 0，因为统计仍只查 <code>sys_user</code> 表（教师管理系统用户）。</p><h3 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h3><p><code>DashboardServiceImpl.getMetrics()</code> 中的 <code>totalStudents</code> 只有这一行：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Integer</span> <span class="variable">studentCount</span> <span class="operator">=</span> userMapper.countStudentsByClassId(classId);</span><br></pre></td></tr></table></figure><p>现在 sys_user 只存老师用户，学生直接通过文件名上传，数据在 submission 表中。</p><h3 id="解决-3"><a href="#解决-3" class="headerlink" title="解决"></a>解决</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 学生总数 = submission 表独立提交者</span></span><br><span class="line"><span class="type">Integer</span> <span class="variable">studentCount</span> <span class="operator">=</span> submissionMapper.countDistinctStudentsByClassId(classId);</span><br><span class="line">metrics.setTotalStudents(studentCount != <span class="literal">null</span> ? studentCount : <span class="number">0</span>);</span><br></pre></td></tr></table></figure><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// SubmissionMapper</span></span><br><span class="line"><span class="meta">@Select(&quot;SELECT COUNT(DISTINCT student_name) FROM submission WHERE class_id = #&#123;classId&#125;&quot;)</span></span><br><span class="line">Integer <span class="title function_">countDistinctStudentsByClassId</span><span class="params">(<span class="meta">@Param(&quot;classId&quot;)</span> Long classId)</span>;</span><br></pre></td></tr></table></figure><hr><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>今天的改动核心是<strong>把作业提交改为游客模式</strong>，过程中暴露了几个典型的全栈坑：</p><table><thead><tr><th>层面</th><th>问题</th><th>根因类型</th></tr></thead><tbody><tr><td>数据</td><td>JSON 提取不完整</td><td>字符串处理不够健壮</td></tr><tr><td>数据库</td><td>旧表约束不兼容新逻辑</td><td>表设计未考虑 Schema 变化</td></tr><tr><td>前端</td><td>重复请求</td><td><code>evaluation_id</code> 字段有 NOT NULL 约束</td></tr><tr><td>统计</td><td>计数值来源错误</td><td>业务逻辑未随数据源变化更新</td></tr></tbody></table><p>教训：需求改动时要通盘考虑认证、数据处理、数据库约束、前端交互四个层面，缺一不可。</p>]]></content>
       
       
       <categories>
           
-          <category> 项目总结 </category>
-          
-          <category> Java后端 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
+            <tag> Spring Boot </tag>
+            
             <tag> OpenClaw </tag>
             
-            <tag> Spring Boot </tag>
+            <tag> JSON </tag>
             
         </tags>
       
@@ -727,22 +758,20 @@
       
       <categories>
           
-          <category> 项目总结 </category>
-          
-          <category> Java后端 </category>
+          <category> AI 工程 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> RAG </tag>
+            <tag> Spring Boot </tag>
             
             <tag> OpenClaw </tag>
             
             <tag> OneBot </tag>
             
-            <tag> Spring Boot </tag>
+            <tag> RAG </tag>
             
         </tags>
       
@@ -760,18 +789,16 @@
       
       <categories>
           
-          <category> 项目总结 </category>
-          
-          <category> Java后端 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> OpenClaw </tag>
-            
             <tag> Spring Boot </tag>
+            
+            <tag> OpenClaw </tag>
             
             <tag> Vue3 </tag>
             
@@ -782,54 +809,25 @@
     
     
     <entry>
-      <title>2026-04-21 每日总结 | 热力图修复 &amp; 学习复盘</title>
-      <link href="/2026/04/21/20260421-2/"/>
-      <url>/2026/04/21/20260421-2/</url>
-      
-        <content type="html"><![CDATA[<h2 id="一、今日工作完成"><a href="#一、今日工作完成" class="headerlink" title="一、今日工作完成"></a>一、今日工作完成</h2><h3 id="1-项目开发：热力图问题修复"><a href="#1-项目开发：热力图问题修复" class="headerlink" title="1. 项目开发：热力图问题修复"></a>1. 项目开发：热力图问题修复</h3><p>今日核心完成<strong>热力图功能修复</strong>，定位并解决了数据返回错误问题：</p><ul><li>问题根源：PostgreSQL 中 <code>avg()</code> 聚合函数返回高精度数值类型，直接强转为 <code>float</code> 会导致数据精度丢失、回传异常；</li><li>解决方案：调整数据类型转换逻辑，保证数值精度，热力图展示恢复正常。</li></ul><h3 id="2-项目后续改进方向"><a href="#2-项目后续改进方向" class="headerlink" title="2. 项目后续改进方向"></a>2. 项目后续改进方向</h3><ol><li><strong>AI生成功能推进</strong>：目前AI相关功能尚未落地，需梳理业务场景，规划AI结合点；</li><li><strong>通知消息优化</strong>：当前通知仅支持后端发送邮件，后续需对接 <code>openclaw</code>，实现消息推送至对应社交媒体。</li></ol><h2 id="二、学习成长复盘"><a href="#二、学习成长复盘" class="headerlink" title="二、学习成长复盘"></a>二、学习成长复盘</h2><h3 id="1-英语-技术四大件"><a href="#1-英语-技术四大件" class="headerlink" title="1. 英语 &amp; 技术四大件"></a>1. 英语 &amp; 技术四大件</h3><ul><li>固定学习任务全部完成；</li><li>技术四大件学习<strong>10个课时</strong>，重做往期习题；</li><li>核心收获：发现考点与基础学习内容存在差异，初步摸清考试逻辑与考察重点。</li></ul><h3 id="2-个人项目：博客系统升级"><a href="#2-个人项目：博客系统升级" class="headerlink" title="2. 个人项目：博客系统升级"></a>2. 个人项目：博客系统升级</h3><p>为自用博客系统新增视觉特效，优化前端交互体验。</p><h3 id="3-算法学习：动态规划（DP）"><a href="#3-算法学习：动态规划（DP）" class="headerlink" title="3. 算法学习：动态规划（DP）"></a>3. 算法学习：动态规划（DP）</h3><ul><li>主攻方向：动态规划专题，持续攻克难点；</li><li>核心痛点：问题拆分、边界条件确定仍需大量经验积累；</li><li>学习目标：熟练掌握<strong>记忆化搜索</strong>解题思路；</li><li>后续计划：重温灵神（灵茶山艾府）DP教程，强化解题思维。</li></ul><h2 id="三、明日计划"><a href="#三、明日计划" class="headerlink" title="三、明日计划"></a>三、明日计划</h2><ol><li><strong>固定任务</strong>：完成每日英语、技术四大件学习；</li><li><strong>锻炼身体</strong>：<ul><li>下雨：宿舍室内锻炼 1 小时；</li><li>晴天：户外跑步 30 分钟；</li></ul></li><li><strong>算法推进</strong>：继续学习动态规划，巩固记忆化搜索。</li></ol><hr><h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>今日完成核心项目bug修复，夯实了技术基础学习，算法DP仍需持续深耕。保持学习节奏，兼顾身体与成长，稳步推进各项任务～</p>]]></content>
-      
-      
-      <categories>
-          
-          <category> 学习记录 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> 算法 </tag>
-            
-            <tag> 学习复盘 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>作业批改系统热力图不显示问题排查记录</title>
-      <link href="/2026/04/21/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%952/"/>
-      <url>/2026/04/21/%E9%A1%B9%E7%9B%AE%E8%BF%9B%E5%B1%952/</url>
+      <title>PostgreSQL AVG() 返回 BigDecimal 导致 ClassCastException 排查</title>
+      <link href="/2026/04/21/postgresql-bigdecimal-avg-type-cast/"/>
+      <url>/2026/04/21/postgresql-bigdecimal-avg-type-cast/</url>
       
         <content type="html"><![CDATA[<h2 id="问题现象"><a href="#问题现象" class="headerlink" title="问题现象"></a>问题现象</h2><p>教学数据仪表盘中的「知识点掌握度热力图」区域空白，不显示任何数据。浏览器控制台显示接口返回 500 错误。</p><p><img src="https://via.placeholder.com/600x300/f5f5f5/999999?text=%E7%83%AD%E5%8A%9B%E5%9B%BE%E5%8C%BA%E5%9F%9F%E7%A9%BA%E7%99%BD" alt="热力图空白示意图"></p><span id="more"></span><h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><h3 id="第一步：确认数据链路"><a href="#第一步：确认数据链路" class="headerlink" title="第一步：确认数据链路"></a>第一步：确认数据链路</h3><p>首先检查后端的 <code>HomeworkKnowledgeMapper</code>，发现 SQL 查询逻辑是正确的：</p><ul><li>从 <code>homework_knowledge</code> 表查询知识点掌握记录</li><li>JOIN <code>homework_evaluation</code> 表按班级筛选</li><li>按知识点分组计算平均掌握度</li></ul><p>数据流设计没有问题，直接查询批改结果表，避免了知识点名称映射的混乱。</p><h3 id="第二步：定位后端异常"><a href="#第二步：定位后端异常" class="headerlink" title="第二步：定位后端异常"></a>第二步：定位后端异常</h3><p>查看后端日志，发现具体的错误信息：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java.lang.ClassCastException: <span class="keyword">class</span> <span class="title class_">java</span>.math.BigDecimal cannot be cast to <span class="keyword">class</span> <span class="title class_">java</span>.lang.Double</span><br></pre></td></tr></table></figure><p>错误发生在 <code>DashboardServiceImpl.java</code> 第 121 行。</p><h3 id="第三步：分析根因"><a href="#第三步：分析根因" class="headerlink" title="第三步：分析根因"></a>第三步：分析根因</h3><p>问题出在类型转换上：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 原代码</span></span><br><span class="line"><span class="type">Double</span> <span class="variable">avgMastery</span> <span class="operator">=</span> (Double) stat.get(<span class="string">&quot;avg_mastery&quot;</span>);</span><br></pre></td></tr></table></figure><p><strong>PostgreSQL 的 <code>AVG()</code> 函数返回的是 <code>BigDecimal</code> 类型</strong>，而不是 <code>Double</code>。直接使用强制类型转换会抛出 <code>ClassCastException</code>。</p><p>这是不同数据库之间的差异：</p><table><thead><tr><th>数据库</th><th>AVG() 返回类型</th></tr></thead><tbody><tr><td>MySQL</td><td>Double &#x2F; Long</td></tr><tr><td>PostgreSQL</td><td>BigDecimal</td></tr><tr><td>Oracle</td><td>BigDecimal</td></tr></tbody></table><h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p>修改 <code>DashboardServiceImpl.java</code> 中的类型处理逻辑：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 修复后的代码</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">avgMasteryObj</span> <span class="operator">=</span> stat.get(<span class="string">&quot;avg_mastery&quot;</span>);</span><br><span class="line"><span class="type">int</span> <span class="variable">mastery</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"><span class="keyword">if</span> (avgMasteryObj != <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> (avgMasteryObj <span class="keyword">instanceof</span> Number) &#123;</span><br><span class="line">        mastery = ((Number) avgMasteryObj).intValue();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">dto.setMastery(mastery);</span><br></pre></td></tr></table></figure><p>使用 <code>Number</code> 接口作为中间层，可以兼容 <code>BigDecimal</code>、<code>Double</code>、<code>Float</code> 等各种数值类型。</p><h2 id="经验总结"><a href="#经验总结" class="headerlink" title="经验总结"></a>经验总结</h2><h3 id="1-数据库兼容性注意点"><a href="#1-数据库兼容性注意点" class="headerlink" title="1. 数据库兼容性注意点"></a>1. 数据库兼容性注意点</h3><p>当使用聚合函数（<code>AVG()</code>、<code>SUM()</code>、<code>COUNT()</code> 等）时，不同数据库的返回类型可能不同。编写跨数据库兼容的代码时，需要特别注意这一点。</p><h3 id="2-防御性编程"><a href="#2-防御性编程" class="headerlink" title="2. 防御性编程"></a>2. 防御性编程</h3><p>处理数据库查询结果时，避免直接强制类型转换：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 不推荐 - 可能抛出 ClassCastException</span></span><br><span class="line"><span class="type">double</span> <span class="variable">value</span> <span class="operator">=</span> (Double) map.get(<span class="string">&quot;column&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 推荐 - 安全类型转换</span></span><br><span class="line"><span class="type">Object</span> <span class="variable">obj</span> <span class="operator">=</span> map.get(<span class="string">&quot;column&quot;</span>);</span><br><span class="line"><span class="type">double</span> <span class="variable">value</span> <span class="operator">=</span> obj <span class="keyword">instanceof</span> Number ? ((Number) obj).doubleValue() : <span class="number">0.0</span>;</span><br></pre></td></tr></table></figure><h3 id="3-日志的重要性"><a href="#3-日志的重要性" class="headerlink" title="3. 日志的重要性"></a>3. 日志的重要性</h3><p>如果没有后端详细的异常堆栈，这个问题很难定位。生产环境务必开启完整的日志记录，包括：</p><ul><li>SQL 执行日志</li><li>异常堆栈信息</li><li>请求&#x2F;响应参数</li></ul><h2 id="最终效果"><a href="#最终效果" class="headerlink" title="最终效果"></a>最终效果</h2><p>修复后热力图正常显示，按掌握度从低到高排序，颜色区分：</p><ul><li>🔴 <strong>红色</strong>：掌握度 &lt; 60%（薄弱）</li><li>🟡 <strong>黄色</strong>：掌握度 60%-80%（一般）</li><li>🟢 <strong>绿色</strong>：掌握度 &gt; 80%（良好）</li></ul><h2 id="技术栈"><a href="#技术栈" class="headerlink" title="技术栈"></a>技术栈</h2><ul><li><strong>后端</strong>: Spring Boot + MyBatis-Plus + PostgreSQL</li><li><strong>前端</strong>: Vue 3</li><li><strong>问题类型</strong>: 数据库类型兼容性问题</li><li><strong>修复耗时</strong>: 10 分钟</li></ul><hr><blockquote><p>本文首发于个人博客，转载请注明出处。</p></blockquote>]]></content>
       
       
       <categories>
           
-          <category> 项目总结 </category>
-          
-          <category> Java后端 </category>
+          <category> 后端开发 </category>
           
       </categories>
       
       
         <tags>
             
-            <tag> PostgreSQL </tag>
-            
             <tag> Spring Boot </tag>
+            
+            <tag> PostgreSQL </tag>
             
             <tag> Bug排查 </tag>
             
@@ -840,107 +838,16 @@
     
     
     <entry>
-      <title>2026-04-20 学习日志｜项目可视化优化+算法BFS&amp;DP复盘</title>
-      <link href="/2026/04/20/20260421/"/>
-      <url>/2026/04/20/20260421/</url>
-      
-        <content type="html"><![CDATA[<h2 id="✨-今日完成"><a href="#✨-今日完成" class="headerlink" title="✨ 今日完成"></a>✨ 今日完成</h2><h3 id="1-项目进度"><a href="#1-项目进度" class="headerlink" title="1. 项目进度"></a>1. 项目进度</h3><p>完成了<strong>作业系统可视化页面</strong>开发，目前页面主体功能已实现。</p><p>存在问题：</p><ul><li>热力图显示异常</li><li>当前为AI预设热力图，未实现<strong>从作业提取关键词</strong>&#x2F;<strong>关联知识点表</strong>展示逻辑</li><li>计划明日优先修复该核心问题</li></ul><h3 id="2-日常学习"><a href="#2-日常学习" class="headerlink" title="2. 日常学习"></a>2. 日常学习</h3><p>✅ 完成每日英语单词学习+复习<br>✅ 算法专题学习与复盘</p><h3 id="3-算法知识总结"><a href="#3-算法知识总结" class="headerlink" title="3. 算法知识总结"></a>3. 算法知识总结</h3><h4 id="BFS-模板复习"><a href="#BFS-模板复习" class="headerlink" title="BFS 模板复习"></a>BFS 模板复习</h4><p>核心步骤梳理：</p><ol><li>定义矩阵范围 m, n</li><li>初始化队列 <code>queue</code>，用于存储每一层遍历节点（BFS 按层搜索）</li><li>双层循环定位起点，将第一层&#x2F;起点入队</li><li>BFS 核心：双层循环控制遍历层级 + 终止条件判断 + 按题意处理逻辑</li></ol><h4 id="动态规划-DP-入门学习"><a href="#动态规划-DP-入门学习" class="headerlink" title="动态规划 DP 入门学习"></a>动态规划 DP 入门学习</h4><p>学习思路：</p><ul><li>从<strong>递归</strong>切入理解：将大问题拆解为子问题（经典：爬楼梯问题）</li><li>递归缺陷：重复计算导致超时</li><li>优化方案：<strong>记忆化搜索</strong>（数组存储重复计算结果）</li><li>进阶：推导出状态转移方程，转化为<strong>递推 DP 写法</strong></li><li>拓展：DP 可向图论方向优化（暂未学习）</li></ul><h2 id="📌-今日未完成"><a href="#📌-今日未完成" class="headerlink" title="📌 今日未完成"></a>📌 今日未完成</h2><ul><li>计算机四大件学习无进展</li><li>明日需重点调整时间分配，保证专项学习时间</li></ul><h2 id="🎯-明日计划"><a href="#🎯-明日计划" class="headerlink" title="🎯 明日计划"></a>🎯 明日计划</h2><ol><li>固定任务：英语单词、算法刷题、八股背诵</li><li>核心任务：计算机四大件系统学习</li><li>项目开发：<strong>优先修复热力图关键词&#x2F;知识点显示问题</strong></li><li>保持节奏，稳步推进</li></ol>]]></content>
-      
-      
-      <categories>
-          
-          <category> 学习记录 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> 算法 </tag>
-            
-            <tag> 学习复盘 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>从作业批改系统到学习管理平台</title>
-      <link href="/2026/04/20/%E9%A1%B9%E7%9B%AE%E5%AD%A6%E4%B9%A0/"/>
-      <url>/2026/04/20/%E9%A1%B9%E7%9B%AE%E5%AD%A6%E4%B9%A0/</url>
-      
-        <content type="html"><![CDATA[<h1 id="从作业批改系统到学习管理平台：一次完整的全栈开发实践"><a href="#从作业批改系统到学习管理平台：一次完整的全栈开发实践" class="headerlink" title="从作业批改系统到学习管理平台：一次完整的全栈开发实践"></a>从作业批改系统到学习管理平台：一次完整的全栈开发实践</h1><h2 id="项目背景"><a href="#项目背景" class="headerlink" title="项目背景"></a>项目背景</h2><p>今天完成了一个学习管理平台的数据可视化模块开发。这个项目基于已有的作业批改系统，扩展了教师端的数据分析功能，包括班级学情看板、知识点掌握度热力图、高频错题统计等。</p><p>技术栈：</p><ul><li><strong>后端</strong>：Spring Boot + MyBatis-Plus + PostgreSQL</li><li><strong>前端</strong>：Vue3 + 原生 CSS</li><li><strong>AI 网关</strong>：OpenClaw（多模型调度）</li></ul><span id="more"></span><h2 id="核心功能实现"><a href="#核心功能实现" class="headerlink" title="核心功能实现"></a>核心功能实现</h2><h3 id="1-数据可视化看板"><a href="#1-数据可视化看板" class="headerlink" title="1. 数据可视化看板"></a>1. 数据可视化看板</h3><p>教师端新增了一个数据看板页面，包含以下模块：</p><table><thead><tr><th>模块</th><th>功能描述</th></tr></thead><tbody><tr><td>核心指标卡片</td><td>学生总数、作业总数、平均正确率、需关注学生</td></tr><tr><td>成绩分布图</td><td>柱状图展示各分数段人数占比</td></tr><tr><td>知识点热力图</td><td>12个知识点的掌握度可视化（绿&#x2F;黄&#x2F;红）</td></tr><tr><td>高频错题 TOP10</td><td>错误率排序，前3标红高亮</td></tr><tr><td>学生学情列表</td><td>支持搜索、排序，需关注学生标红</td></tr><tr><td>AI教案生成</td><td>选择教学目标，生成针对性教案</td></tr></tbody></table><h3 id="2-知识点掌握度分析"><a href="#2-知识点掌握度分析" class="headerlink" title="2. 知识点掌握度分析"></a>2. 知识点掌握度分析</h3><p>这是本次开发的核心难点。我们需要：</p><ol><li><strong>修改 AI 批改 Prompt</strong>：让 AI 在批改作业时，同时分析涉及的知识点及掌握程度</li><li><strong>新增知识点表结构</strong>：<code>knowledge_point</code>（字典表）+ <code>homework_knowledge</code>（关联表）</li><li><strong>动态热力图</strong>：根据实际作业内容，动态展示相关知识点（而不是固定列表）</li></ol><p><strong>AI 返回的 JSON 格式示例</strong>：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;totalScore&quot;</span><span class="punctuation">:</span> <span class="number">75</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;knowledgePoints&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;二维数组&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;mastery&quot;</span><span class="punctuation">:</span> <span class="number">85</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;掌握&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;循环结构&quot;</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;mastery&quot;</span><span class="punctuation">:</span> <span class="number">60</span><span class="punctuation">,</span></span><br><span class="line">      <span class="attr">&quot;status&quot;</span><span class="punctuation">:</span> <span class="string">&quot;薄弱&quot;</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure><h2 id="遇到的问题与解决方案"><a href="#遇到的问题与解决方案" class="headerlink" title="遇到的问题与解决方案"></a>遇到的问题与解决方案</h2><h3 id="问题1：StackOverflowError-无限递归"><a href="#问题1：StackOverflowError-无限递归" class="headerlink" title="问题1：StackOverflowError - 无限递归"></a>问题1：StackOverflowError - 无限递归</h3><p><strong>现象</strong>：后端抛出 <code>java.lang.StackOverflowError</code>，日志显示 <code>OpenClawServiceImpl.chat()</code> 方法无限调用。</p><p><strong>原因</strong>：方法重载时，参数类型匹配错误导致自己调用自己。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 错误代码</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">chat</span><span class="params">(String message, String sessionId, String status)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> chat(message, sessionId, status);  <span class="comment">// 死循环！</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p><strong>解决</strong>：修正参数类型转换逻辑，确保调用的是真正实现方法。</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 正确代码</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> String <span class="title function_">chat</span><span class="params">(String message, String sessionId, String status)</span> &#123;</span><br><span class="line">    <span class="type">Integer</span> <span class="variable">statusCode</span> <span class="operator">=</span> status != <span class="literal">null</span> ? Integer.parseInt(status) : <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">return</span> chat(message, sessionId, statusCode);  <span class="comment">// 调用另一个重载</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="问题2：JSON-解析失败-格式不统一"><a href="#问题2：JSON-解析失败-格式不统一" class="headerlink" title="问题2：JSON 解析失败 - 格式不统一"></a>问题2：JSON 解析失败 - 格式不统一</h3><p><strong>现象</strong>：AI 返回的内容有时包含 markdown 代码块标记（&#96;&#96;&#96;json），有时又直接返回 JSON，导致解析失败。</p><p><strong>原因</strong>：Skill 的 Prompt 要求不够严格，AI 有时会添加额外说明文字。</p><p><strong>解决</strong>：</p><ol><li>强化 Prompt 要求：”<strong>极其重要：必须只返回JSON，不要添加任何其他文字！</strong>“</li><li>后端增加数据清洗逻辑，去除可能的 markdown 标记：</li></ol><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> String <span class="title function_">cleanRawResponse</span><span class="params">(String rawResponse)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">cleaned</span> <span class="operator">=</span> rawResponse.trim();</span><br><span class="line">    <span class="keyword">if</span> (cleaned.startsWith(<span class="string">&quot;```json&quot;</span>)) &#123;</span><br><span class="line">        cleaned = cleaned.substring(<span class="number">7</span>).trim();</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (cleaned.startsWith(<span class="string">&quot;```&quot;</span>)) &#123;</span><br><span class="line">        cleaned = cleaned.substring(<span class="number">3</span>).trim();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (cleaned.endsWith(<span class="string">&quot;```&quot;</span>)) &#123;</span><br><span class="line">        cleaned = cleaned.substring(<span class="number">0</span>, cleaned.length() - <span class="number">3</span>).trim();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> cleaned;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="问题3：热力图数据为空"><a href="#问题3：热力图数据为空" class="headerlink" title="问题3：热力图数据为空"></a>问题3：热力图数据为空</h3><p><strong>现象</strong>：知识点热力图显示为0，数据库查询没有结果。</p><p><strong>原因</strong>：<code>homework_evaluation</code> 表的 <code>class_id</code> 字段没有正确设置，导致 JOIN 查询失败。</p><p><strong>解决</strong>：</p><ol><li>确保 <code>User</code> 实体包含 <code>classId</code> 字段</li><li>保存批改结果时，从用户信息中获取班级ID：</li></ol><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">User</span> <span class="variable">user</span> <span class="operator">=</span> userMapper.selectById(userId);</span><br><span class="line"><span class="keyword">if</span> (user != <span class="literal">null</span> &amp;&amp; user.getClassId() != <span class="literal">null</span>) &#123;</span><br><span class="line">    entity.setClassId(user.getClassId());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h2 id="技术亮点"><a href="#技术亮点" class="headerlink" title="技术亮点"></a>技术亮点</h2><h3 id="1-动态知识点分析"><a href="#1-动态知识点分析" class="headerlink" title="1. 动态知识点分析"></a>1. 动态知识点分析</h3><p>传统的学习系统使用预定义的知识点列表，但我们的系统让 AI 根据作业内容<strong>动态分析</strong>涉及的知识点。这样无论是 Java、C语言还是其他科目，都能自动提取相关知识点。</p><h3 id="2-数据驱动的教案生成"><a href="#2-数据驱动的教案生成" class="headerlink" title="2. 数据驱动的教案生成"></a>2. 数据驱动的教案生成</h3><p>基于学生的薄弱知识点，系统可以自动生成针对性教案。教师只需选择教学目标（巩固基础、突破难点等），AI 就会结合班级数据生成个性化教案。</p><h3 id="3-前后端分离的实时数据"><a href="#3-前后端分离的实时数据" class="headerlink" title="3. 前后端分离的实时数据"></a>3. 前后端分离的实时数据</h3><p>前端使用 Vue3 的 <code>watch</code> 监听班级选择变化，自动加载对应数据。后端提供 RESTful API，支持按班级筛选和排序。</p><h2 id="项目结构"><a href="#项目结构" class="headerlink" title="项目结构"></a>项目结构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">后端 (Spring Boot)</span><br><span class="line">├── Entity/</span><br><span class="line">│   ├── ClassInfo.java          # 班级信息</span><br><span class="line">│   ├── HomeworkEvaluation.java # 作业评价</span><br><span class="line">│   └── HomeworkKnowledge.java  # 知识点掌握情况</span><br><span class="line">├── Controller/</span><br><span class="line">│   ├── DashboardController.java    # 数据看板接口</span><br><span class="line">│   └── TeachingPlanController.java # 教案生成接口</span><br><span class="line">├── Service/</span><br><span class="line">│   └── DashboardServiceImpl.java   # 数据统计逻辑</span><br><span class="line">└── Mapper/</span><br><span class="line">    └── HomeworkKnowledgeMapper.java</span><br><span class="line"></span><br><span class="line">前端 (Vue3)</span><br><span class="line">└── views/</span><br><span class="line">    └── PageFour.vue            # 教师数据看板</span><br><span class="line"></span><br><span class="line">Skill (OpenClaw)</span><br><span class="line">└── homework-grader/</span><br><span class="line">    └── SKILL.md                # 批改作业 Prompt</span><br></pre></td></tr></table></figure><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这次开发让我深刻体会到：</p><ol><li><p><strong>AI 输出的不确定性</strong>：即使 Prompt 写得很清楚，AI 仍可能返回各种格式，后端必须做好容错处理。</p></li><li><p><strong>数据关联的重要性</strong>：一个 <code>class_id</code> 字段的遗漏，会导致整个查询链条断裂。数据库设计时要考虑完整的关联关系。</p></li><li><p><strong>渐进式开发的价值</strong>：先让基础功能跑通（静态数据），再逐步替换成动态数据，最后优化细节。</p></li><li><p><strong>跨层调试的复杂性</strong>：问题可能出现在 Skill、后端、前端任何一个环节，需要分层定位。</p></li></ol><p>项目已开源，欢迎交流讨论。</p><hr>]]></content>
-      
-      
-      <categories>
-          
-          <category> 项目总结 </category>
-          
-          <category> Java后端 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> OpenClaw </tag>
-            
-            <tag> Spring Boot </tag>
-            
-            <tag> Vue3 </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>2026-04-20 学习复盘与明日计划</title>
-      <link href="/2026/04/19/%E6%AF%8F%E6%97%A5%E6%80%BB%E7%BB%93/"/>
-      <url>/2026/04/19/%E6%AF%8F%E6%97%A5%E6%80%BB%E7%BB%93/</url>
-      
-        <content type="html"><![CDATA[<h1 id="学习复盘与明日计划"><a href="#学习复盘与明日计划" class="headerlink" title="学习复盘与明日计划"></a>学习复盘与明日计划</h1><p>今天是假期，整体学习时长不算多，大部分时间用来放松打游戏，晚上才进入学习状态，整体效率还算可以，也发现了自己现阶段学习的核心问题。</p><h2 id="今日学习总结"><a href="#今日学习总结" class="headerlink" title="今日学习总结"></a>今日学习总结</h2><ul><li><strong>英语</strong>：完成了单词的复习与新学任务，保持住了每日的基础积累。</li><li><strong>计算机网络</strong>：继续跟着课程学习知识点，听了几节课，但学习方式存在明显问题。</li></ul><h2 id="核心问题与反思"><a href="#核心问题与反思" class="headerlink" title="核心问题与反思"></a>核心问题与反思</h2><p>学完课程后<strong>没有及时做习题巩固</strong>，直接开始下一节内容，导致回头做前面知识点的题目时，大量内容已经遗忘，记忆非常不牢固。</p><p><strong>教训</strong>：后续学习必须<strong>课程+习题同步结合</strong>，学完一节立刻做题巩固，避免学了就忘、效率低下。</p><h2 id="明日学习流程"><a href="#明日学习流程" class="headerlink" title="明日学习流程"></a>明日学习流程</h2><ol><li>优先完成<strong>算法学习</strong>与<strong>英语单词背诵</strong>（每日固定基础项）</li><li>进行<strong>408四大件</strong>学习，严格按照「学知识点+立即刷题」的模式执行</li><li>推进 <strong>Agent 项目</strong> 开发与规划</li></ol><h2 id="Agent-项目扩展规划（AI-学习管理平台）"><a href="#Agent-项目扩展规划（AI-学习管理平台）" class="headerlink" title="Agent 项目扩展规划（AI 学习管理平台）"></a>Agent 项目扩展规划（AI 学习管理平台）</h2><p>目前的 Agent 项目有很大的扩展空间，完全可以升级为<strong>与 AI 深度结合的学习管理平台</strong>，整体架构与功能思路如下：</p><h3 id="学生端"><a href="#学生端" class="headerlink" title="学生端"></a>学生端</h3><ul><li>学生登录系统后可直接提交作业</li><li>AI 自动对作业进行分析、批改、生成学习报告</li><li>报告自动存入后台，形成个人学习档案</li></ul><h3 id="老师端"><a href="#老师端" class="headerlink" title="老师端"></a>老师端</h3><ul><li>提供可视化界面，实时查看学生学习情况</li><li>统计班级整体学习难点、高频错题</li><li>AI 基于<strong>私有资料库</strong>+学生易错知识点，<strong>自动生成针对性教案&#x2F;测试题</strong></li></ul><h3 id="扩展性优势"><a href="#扩展性优势" class="headerlink" title="扩展性优势"></a>扩展性优势</h3><ul><li>功能可无限迭代扩展</li><li>后期如需切换业务场景，只需<strong>修改资料库内容 + 调整 Agent 设定</strong>即可快速适配，灵活性极强</li></ul><p>接下来会把学习节奏稳定下来，同时把项目的核心框架逐步落地，做到学习与实践同步推进。</p>]]></content>
-      
-      
-      <categories>
-          
-          <category> 学习记录 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> 学习复盘 </tag>
-            
-            <tag> 计算机网络 </tag>
-            
-            <tag> 考研 </tag>
-            
-            <tag> 项目规划 </tag>
-            
-            <tag> AI Agent </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>计算机网络 可靠传输与滑动窗口 考研笔记</title>
-      <link href="/2026/04/18/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C2/"/>
-      <url>/2026/04/18/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C2/</url>
+      <title>计算机网络 — 可靠传输与滑动窗口（考研笔记）</title>
+      <link href="/2026/04/20/computer-network-2-reliable-transmission/"/>
+      <url>/2026/04/20/computer-network-2-reliable-transmission/</url>
       
         <content type="html"><![CDATA[<h1 id="可靠传输"><a href="#可靠传输" class="headerlink" title="可靠传输"></a>可靠传输</h1><h2 id="滑动窗口机制"><a href="#滑动窗口机制" class="headerlink" title="滑动窗口机制"></a>滑动窗口机制</h2><p>类似算法中的滑动窗口，分为<strong>发送窗口</strong>和<strong>接收窗口</strong>。窗口仅向后滑动，<strong>绝不向前后退</strong>；窗口滑动完全由<strong>接收方返回的确认帧 ACK</strong> 控制，接收方通过确认机制限制发送方窗口滑动速度，以此实现<strong>流量控制</strong>。</p><h3 id="考研核心考点"><a href="#考研核心考点" class="headerlink" title="考研核心考点"></a>考研核心考点</h3><ol><li>帧序号采用 n 位二进制编号，总序号空间个数：$2^n$</li><li>不同可靠传输协议，发送窗口、接收窗口大小限制各不相同</li><li>只有收到确认帧，发送窗口才会向后滑动</li></ol><hr><h1 id="停止-等待协议"><a href="#停止-等待协议" class="headerlink" title="停止-等待协议"></a>停止-等待协议</h1><h2 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h2><ul><li><strong>数据帧</strong>：发送方传输数据的基本单元，帧首部携带帧序号。</li><li><strong>确认帧（ACK）</strong>：接收方正确接收数据帧后，返回给发送方的应答帧，帧内携带对应帧序号，用于告知发送方该帧接收无误，可以发送下一帧。</li><li><strong>帧序号</strong>：用于区分新旧帧、重复帧，本协议仅需 0、1 两个序号循环即可。</li></ul><h2 id="超时重传"><a href="#超时重传" class="headerlink" title="超时重传"></a>超时重传</h2><p>为解决<strong>数据帧丢失</strong>问题：发送方每发一帧就启动超时计时器，若长时间未收到对应 ACK，判定帧丢失，<strong>超时重传该帧，并重置计时器</strong>。</p><ul><li><strong>确认帧丢失</strong>：发送方依旧超时重传该帧；接收方通过帧序号识别出重复帧，<strong>直接丢弃重复帧，并重新发送对应 ACK</strong>。</li><li><strong>数据帧出错</strong>：接收方检测出差错后，直接丢弃出错帧，<strong>不发送任何 ACK</strong>，触发发送方超时重传。</li></ul><h2 id="窗口大小"><a href="#窗口大小" class="headerlink" title="窗口大小"></a>窗口大小</h2><p>$W_T&#x3D;1，W_R&#x3D;1$</p><h2 id="信道利用率"><a href="#信道利用率" class="headerlink" title="信道利用率"></a>信道利用率</h2><p>$U &#x3D; T_d &#x2F; (T_d + RTT)$</p><ul><li>$T_d$：一帧发送时延</li><li>$RTT$：往返传播时延</li></ul><h2 id="优缺点"><a href="#优缺点" class="headerlink" title="优缺点"></a>优缺点</h2><ul><li>优点：原理最简单，实现简单，接收端几乎不需要缓存空间</li><li>缺点：一次仅发送一帧，等待时间长，信道利用率极低，链路越长效率越差</li></ul><hr><h1 id="后退N帧协议（GBN，回退N帧）"><a href="#后退N帧协议（GBN，回退N帧）" class="headerlink" title="后退N帧协议（GBN，回退N帧）"></a>后退N帧协议（GBN，回退N帧）</h1><h2 id="工作要求"><a href="#工作要求" class="headerlink" title="工作要求"></a>工作要求</h2><p>发送方可以<strong>连续发送多个帧</strong>，无需逐帧等待确认；采用<strong>累积确认</strong>机制，接收方仅对<strong>按序到达的最后一个正确帧</strong>发送 ACK。</p><p>例：收到帧1、2、3全部正确，仅回复 ACK3，代表前面所有帧均接收正确。</p><h2 id="差错处理"><a href="#差错处理" class="headerlink" title="差错处理"></a>差错处理</h2><ol><li><p><strong>中间帧出错&#x2F;丢失</strong><br>例如发送 1、2、3 帧，帧2出错。接收方丢弃出错帧以及后续所有乱序帧，仅确认已正确的帧1；发送方超时后<strong>回退到出错帧，重传该帧及其之后全部帧（2、3、4）</strong>。</p></li><li><p><strong>确认帧 ACK 丢失</strong><br>发送窗口内最早帧计时器先超时，一次性重传该帧以及后续所有未确认帧。</p></li></ol><h2 id="接收方规则"><a href="#接收方规则" class="headerlink" title="接收方规则"></a>接收方规则</h2><ul><li>接收窗口大小固定 $W_R&#x3D;1$</li><li>只按序接收，<strong>不缓存任何乱序帧</strong>，乱序帧全部直接丢弃</li></ul><h2 id="窗口大小限制"><a href="#窗口大小限制" class="headerlink" title="窗口大小限制"></a>窗口大小限制</h2><p>n 位帧序号：<br>$W_T \le 2^n - 1$</p><h2 id="信道利用率-1"><a href="#信道利用率-1" class="headerlink" title="信道利用率"></a>信道利用率</h2><p>$U &#x3D; (W_T * T_d) &#x2F; (W_T * T_d + RTT)$</p><p>发送窗口越大，信道利用率越高，整体效率远优于停止等待协议。</p><h2 id="优缺点-1"><a href="#优缺点-1" class="headerlink" title="优缺点"></a>优缺点</h2><ul><li>优点：支持连续发送，效率提升明显；接收缓存极小</li><li>缺点：一错全重传，出错会重传大量原本正确的帧，带宽浪费；若接收速度慢，会频繁重传</li></ul><hr><h1 id="选择重传协议（SR）"><a href="#选择重传协议（SR）" class="headerlink" title="选择重传协议（SR）"></a>选择重传协议（SR）</h1><h2 id="工作要求-1"><a href="#工作要求-1" class="headerlink" title="工作要求"></a>工作要求</h2><p>基于连续发送机制改进，<strong>不使用累积确认，一帧一单独 ACK 逐个确认</strong>；重传机制类似停止等待协议，<strong>仅重传出错的单个帧</strong>。</p><h3 id="考研易错纠正"><a href="#考研易错纠正" class="headerlink" title="考研易错纠正"></a>考研易错纠正</h3><p><strong>本协议不存在否认帧（NAK）</strong>，帧出错、帧丢失均依靠<strong>超时重传</strong>机制解决，无专门的否认应答帧。</p><p>接收方接收窗口 $W_R&gt;1$，可以<strong>缓存所有正确到达的乱序帧</strong>，等到缺失帧补齐后，再按序交付给上层。</p><h2 id="差错处理-1"><a href="#差错处理-1" class="headerlink" title="差错处理"></a>差错处理</h2><p>某一帧出错&#x2F;丢失，仅该帧超时，<strong>只单独重传此出错帧</strong>，其余已正确接收的帧全部无需重传。</p><h2 id="窗口大小限制-1"><a href="#窗口大小限制-1" class="headerlink" title="窗口大小限制"></a>窗口大小限制</h2><p>n 位帧序号：<br>$W_T \le W_R \le 2^{n-1}$</p><p>且整体满足约束：<br>$W_T + W_R \le 2^n$</p><p>最优性能：$W_T &#x3D; W_R$</p><p>若不满足该限制，帧序号会循环混淆，无法区分新帧与旧重复帧，可靠性无法保证。</p><h2 id="信道利用率-2"><a href="#信道利用率-2" class="headerlink" title="信道利用率"></a>信道利用率</h2><p>$U &#x3D; (W_T * T_d) &#x2F; (W_T * T_d + RTT)$</p><p>相同窗口大小下，三者利用率最高。</p><h2 id="优缺点-2"><a href="#优缺点-2" class="headerlink" title="优缺点"></a>优缺点</h2><ul><li>优点：仅重传出错帧，带宽利用率最优，支持乱序接收</li><li>缺点：协议实现复杂，接收端需要大量缓存空间，逐帧确认通信开销大</li></ul><hr><h1 id="协议完整对比总结（考研背诵版）"><a href="#协议完整对比总结（考研背诵版）" class="headerlink" title="协议完整对比总结（考研背诵版）"></a>协议完整对比总结（考研背诵版）</h1><h2 id="1-窗口大小总表"><a href="#1-窗口大小总表" class="headerlink" title="1. 窗口大小总表"></a>1. 窗口大小总表</h2><table><thead><tr><th>协议</th><th>发送窗口 W_T</th><th>接收窗口 W_R</th><th>n 位序号限制</th></tr></thead><tbody><tr><td>停止等待</td><td>1</td><td>1</td><td>无</td></tr><tr><td>后退N帧 GBN</td><td>≤ 2ⁿ−1</td><td>1</td><td>W_T ≤ 2ⁿ−1</td></tr><tr><td>选择重传 SR</td><td>≤ 2ⁿ⁻¹</td><td>≤ 2ⁿ⁻¹</td><td>W_T ≤ W_R ≤ 2ⁿ⁻¹</td></tr></tbody></table><h2 id="2-确认机制"><a href="#2-确认机制" class="headerlink" title="2. 确认机制"></a>2. 确认机制</h2><ol><li>停止等待：发一帧，等一帧 ACK</li><li>GBN：累积确认，仅确认最后一个按序正确帧</li><li>SR：逐个独立确认，一帧一 ACK</li></ol><h2 id="3-重传规则"><a href="#3-重传规则" class="headerlink" title="3. 重传规则"></a>3. 重传规则</h2><ol><li>停止等待：仅重传当前出错帧</li><li>GBN：出错则回退全重传</li><li>SR：仅重传出错帧</li></ol><h2 id="4-接收方处理"><a href="#4-接收方处理" class="headerlink" title="4. 接收方处理"></a>4. 接收方处理</h2><ol><li>停止等待：按序接收，无缓存</li><li>GBN：丢弃乱序帧，不缓存</li><li>SR：缓存乱序帧，补齐后上交</li></ol><h2 id="5-信道利用率排序"><a href="#5-信道利用率排序" class="headerlink" title="5. 信道利用率排序"></a>5. 信道利用率排序</h2><p>SR ＞ GBN ＞ 停止等待协议</p><h2 id="6-高频易错点"><a href="#6-高频易错点" class="headerlink" title="6. 高频易错点"></a>6. 高频易错点</h2><ol><li>GBN 接收窗口永远 &#x3D; 1</li><li>SR 没有否认帧 NAK</li><li>SR 窗口最大为 2ⁿ⁻¹</li><li>滑动窗口只能向后滑动</li><li>全部协议依靠 帧序号 + 超时计时器 保证可靠</li><li>累积确认仅 GBN 独有</li></ol>]]></content>
       
       
       <categories>
           
-          <category> 计算机网络 </category>
+          <category> 学习笔记 </category>
           
       </categories>
       
@@ -948,6 +855,8 @@
         <tags>
             
             <tag> 计算机网络 </tag>
+            
+            <tag> 考研 </tag>
             
         </tags>
       
@@ -965,9 +874,9 @@
       
       <categories>
           
-          <category> 项目总结 </category>
+          <category> 后端开发 </category>
           
-          <category> Java后端 </category>
+          <category> AI 工程 </category>
           
       </categories>
       
@@ -987,16 +896,16 @@
     
     
     <entry>
-      <title>计算机网络学习笔记（物理层+数据链路层完整版）</title>
-      <link href="/2026/04/17/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/"/>
-      <url>/2026/04/17/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/</url>
+      <title>计算机网络学习笔记（物理层+数据链路层）</title>
+      <link href="/2026/04/17/computer-network-1-physical-data-link-layer/"/>
+      <url>/2026/04/17/computer-network-1-physical-data-link-layer/</url>
       
         <content type="html"><![CDATA[<h1 id="计算机网络学习笔记"><a href="#计算机网络学习笔记" class="headerlink" title="计算机网络学习笔记"></a>计算机网络学习笔记</h1><blockquote><p>超清晰整理 | 适合复习背诵</p></blockquote><hr><h2 id="一、网络分层结构"><a href="#一、网络分层结构" class="headerlink" title="一、网络分层结构"></a>一、网络分层结构</h2><h3 id="1-OSI-七层模型（理论）"><a href="#1-OSI-七层模型（理论）" class="headerlink" title="1. OSI 七层模型（理论）"></a>1. OSI 七层模型（理论）</h3><ol><li>物理层</li><li>数据链路层</li><li>网络层</li><li>传输层</li><li>会话层</li><li>表示层</li><li>应用层</li></ol><h3 id="2-TCP-IP-四层模型（实际使用）"><a href="#2-TCP-IP-四层模型（实际使用）" class="headerlink" title="2. TCP&#x2F;IP 四层模型（实际使用）"></a>2. TCP&#x2F;IP 四层模型（实际使用）</h3><ol><li>网络接口层</li><li>网络层</li><li>传输层</li><li>应用层</li></ol><hr><h2 id="二、通信基础概念"><a href="#二、通信基础概念" class="headerlink" title="二、通信基础概念"></a>二、通信基础概念</h2><ul><li><strong>信源</strong>：信息的发送方</li><li><strong>信宿</strong>：信息的接收方</li><li><strong>信道</strong>：信号传输的物理通道</li><li><strong>信号</strong><ul><li>数字信号：离散、不连续</li><li>模拟信号：连续变化</li></ul></li></ul><h3 id="码元、波特率、比特率"><a href="#码元、波特率、比特率" class="headerlink" title="码元、波特率、比特率"></a>码元、波特率、比特率</h3><ul><li><strong>码元</strong>：一个固定时长的信号波形，代表一个离散数值</li><li><strong>波特率</strong>：每秒传输的码元数（码元速率）</li><li><strong>比特率</strong>：每秒传输的比特数（信息速率）</li><li>关系：比特率 &#x3D; 波特率 × log₂(一个码元携带的比特数)</li></ul><hr><h2 id="三、信道的极限容量"><a href="#三、信道的极限容量" class="headerlink" title="三、信道的极限容量"></a>三、信道的极限容量</h2><h3 id="1-噪声"><a href="#1-噪声" class="headerlink" title="1. 噪声"></a>1. 噪声</h3><p>传输过程中混入的干扰信号，会影响数据准确性。</p><h3 id="2-奈奎斯特定理（无噪声）"><a href="#2-奈奎斯特定理（无噪声）" class="headerlink" title="2. 奈奎斯特定理（无噪声）"></a>2. 奈奎斯特定理（无噪声）</h3><p>极限码元传输速率：<br><code>C = 2W log₂(N)</code></p><ul><li>W：信道带宽</li><li>N：码元的离散电平数</li></ul><h3 id="3-香农定理（有噪声）"><a href="#3-香农定理（有噪声）" class="headerlink" title="3. 香农定理（有噪声）"></a>3. 香农定理（有噪声）</h3><p>极限信息传输速率：<br><code>C = W log₂(1 + S/N)</code></p><ul><li>S&#x2F;N：信噪比</li><li>信噪比（dB）&#x3D; 10 log₁₀(S&#x2F;N)</li><li>例：S&#x2F;N&#x3D;1000 → 30dB</li></ul><hr><h2 id="四、编码与调制"><a href="#四、编码与调制" class="headerlink" title="四、编码与调制"></a>四、编码与调制</h2><h3 id="1-常用编码"><a href="#1-常用编码" class="headerlink" title="1. 常用编码"></a>1. 常用编码</h3><ol><li><strong>NRZ 不归零编码</strong><br>高电平1，低电平0，简单但无法同步。</li><li><strong>RZ 归零编码</strong><br>每个码元中间归零，自带同步，但浪费带宽。</li><li><strong>NRZI 反向非归零</strong><br>翻转表示1，不翻转表示0。</li><li><strong>曼彻斯特编码</strong><br>前高后低&#x3D;1，前低后高&#x3D;0，自带时钟，以太网使用。</li><li><strong>差分曼彻斯特编码</strong><br>码元开始处翻转&#x3D;0，不翻转&#x3D;1，抗干扰更强。</li></ol><h3 id="2-编码特点"><a href="#2-编码特点" class="headerlink" title="2. 编码特点"></a>2. 编码特点</h3><ul><li>自同步能力</li><li>带宽开销</li><li>抗干扰能力</li></ul><h3 id="3-调制方式"><a href="#3-调制方式" class="headerlink" title="3. 调制方式"></a>3. 调制方式</h3><ul><li>调幅 AM</li><li>调频 FM</li><li>调相 PM</li><li>正交幅度调制 QAM</li></ul><hr><h2 id="五、传输介质"><a href="#五、传输介质" class="headerlink" title="五、传输介质"></a>五、传输介质</h2><h3 id="导向型"><a href="#导向型" class="headerlink" title="导向型"></a>导向型</h3><ul><li>双绞线</li><li>同轴电缆</li><li>光纤</li></ul><h3 id="非导向型"><a href="#非导向型" class="headerlink" title="非导向型"></a>非导向型</h3><ul><li>无线电、微波、红外、激光</li></ul><h3 id="物理层接口特性"><a href="#物理层接口特性" class="headerlink" title="物理层接口特性"></a>物理层接口特性</h3><ul><li>机械特性</li><li>电气特性</li><li>功能特性</li><li>规程特性</li></ul><hr><h2 id="六、物理层设备"><a href="#六、物理层设备" class="headerlink" title="六、物理层设备"></a>六、物理层设备</h2><ul><li><strong>中继器</strong>：放大信号，延长传输距离</li><li><strong>集线器</strong>：多口中继器，共享带宽，所有端口在同一个冲突域</li><li><strong>冲突域</strong>：同一域内设备同时发送会产生冲突</li><li>中继器与集线器<strong>不能隔离冲突域</strong></li></ul><hr><h2 id="七、数据链路层"><a href="#七、数据链路层" class="headerlink" title="七、数据链路层"></a>七、数据链路层</h2><h3 id="1-物理链路-逻辑链路"><a href="#1-物理链路-逻辑链路" class="headerlink" title="1. 物理链路 &amp; 逻辑链路"></a>1. 物理链路 &amp; 逻辑链路</h3><ul><li>物理链路：实际线路</li><li>逻辑链路：加上协议后的通信通道</li></ul><h3 id="2-数据链路层功能"><a href="#2-数据链路层功能" class="headerlink" title="2. 数据链路层功能"></a>2. 数据链路层功能</h3><ol><li><strong>封装成帧</strong><ul><li>帧定界</li><li>透明传输</li></ul></li><li><strong>透明传输</strong><br>不管数据是什么，都能正确传输。</li><li><strong>差错控制</strong><ul><li>检错：发现错误</li><li>纠错：自动修复错误</li></ul></li></ol><hr><h2 id="八、差错控制（完整补全版）"><a href="#八、差错控制（完整补全版）" class="headerlink" title="八、差错控制（完整补全版）"></a>八、差错控制（完整补全版）</h2><h3 id="1-检错编码"><a href="#1-检错编码" class="headerlink" title="1. 检错编码"></a>1. 检错编码</h3><h4 id="（1）奇偶校验码"><a href="#（1）奇偶校验码" class="headerlink" title="（1）奇偶校验码"></a>（1）奇偶校验码</h4><ul><li>在数据后加1位，使1的总数为奇数&#x2F;偶数。</li><li>只能检测<strong>奇数个位错误</strong>，无法纠错。</li></ul><h4 id="（2）循环冗余校验-CRC"><a href="#（2）循环冗余校验-CRC" class="headerlink" title="（2）循环冗余校验 CRC"></a>（2）循环冗余校验 CRC</h4><ul><li>通过多项式除法计算冗余码。</li><li>检错能力强，广泛用于数据链路层（如以太网）。</li><li>只能检错，<strong>不能纠错</strong>。</li></ul><hr><h3 id="2-纠错编码（你学到这里）"><a href="#2-纠错编码（你学到这里）" class="headerlink" title="2. 纠错编码（你学到这里）"></a>2. 纠错编码（你学到这里）</h3><h4 id="海明校验码"><a href="#海明校验码" class="headerlink" title="海明校验码"></a>海明校验码</h4><ul><li>既能<strong>检错</strong>，又能<strong>纠错</strong>（1位错可直接纠正）。</li><li>核心思想：加入多个校验位，按分组校验，定位错误位置。</li></ul><h4 id="海明码基本规则"><a href="#海明码基本规则" class="headerlink" title="海明码基本规则"></a>海明码基本规则</h4><ol><li>校验位 r 满足：<code>2ʳ ≥ 数据位 + r + 1</code></li><li>校验位放在 <strong>2⁰、2¹、2²…</strong> 位置（1、2、4、8…）</li><li>每一位数据由多个校验位共同监督</li><li>按异或运算得到校正因子，判断是否出错</li><li>若只有1位错，可直接定位并纠正</li></ol><h4 id="特点"><a href="#特点" class="headerlink" title="特点"></a>特点</h4><ul><li>可<strong>检测 2 位错误</strong></li><li>可<strong>纠正 1 位错误</strong></li><li>常用于对可靠性要求高的场景</li></ul>]]></content>
       
       
       <categories>
           
-          <category> 计算机网络 </category>
+          <category> 学习笔记 </category>
           
       </categories>
       
@@ -1005,45 +914,7 @@
             
             <tag> 计算机网络 </tag>
             
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>Hello World</title>
-      <link href="/2026/04/16/hello-world/"/>
-      <url>/2026/04/16/hello-world/</url>
-      
-        <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/writing.html">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>]]></content>
-      
-      
-      
-    </entry>
-    
-    
-    
-    <entry>
-      <title>建站首发：Markdown语法开篇</title>
-      <link href="/2022/08/02/Markdown%E8%AF%AD%E6%B3%95%E5%BC%80%E7%AF%87/"/>
-      <url>/2022/08/02/Markdown%E8%AF%AD%E6%B3%95%E5%BC%80%E7%AF%87/</url>
-      
-        <content type="html"><![CDATA[<h1 id="Markdown-语法开篇"><a href="#Markdown-语法开篇" class="headerlink" title="Markdown 语法开篇"></a>Markdown 语法开篇</h1><p>本文适用于新手快速入门 Markdown，是搭建博客的必备基础。</p><h2 id="1-标题示例"><a href="#1-标题示例" class="headerlink" title="1. 标题示例"></a>1. 标题示例</h2><pre><code class="language-markdown"># 一级标题## 二级标题### 三级标题</code></pre>]]></content>
-      
-      
-      <categories>
-          
-          <category> Markdown </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> Markdown </tag>
-            
-            <tag> 语言 </tag>
+            <tag> 考研 </tag>
             
         </tags>
       
