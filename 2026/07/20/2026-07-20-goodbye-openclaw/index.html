@@ -1,0 +1,457 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排 | LKL-ZREO</title><meta name="author" content="LKL-ZREO"><meta name="copyright" content="LKL-ZREO"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="为什么 EduMind 抛弃了 OpenClaw AI 网关，自己从零构建 Agent 循环 + OneBot 双向通信，以及在这个过程中学到的关于&quot;多 Agent 编排&quot;的真相。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排">
+<meta property="og:url" content="https://www.lkl-zero.top/2026/07/20/2026-07-20-goodbye-openclaw/index.html">
+<meta property="og:site_name" content="LKL-ZREO">
+<meta property="og:description" content="为什么 EduMind 抛弃了 OpenClaw AI 网关，自己从零构建 Agent 循环 + OneBot 双向通信，以及在这个过程中学到的关于&quot;多 Agent 编排&quot;的真相。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png">
+<meta property="article:published_time" content="2026-07-19T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-20T13:29:21.536Z">
+<meta property="article:author" content="LKL-ZREO">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="OneBot">
+<meta property="article:tag" content="OpenClaw">
+<meta property="article:tag" content="QQ机器人">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="作业批改">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排",
+  "url": "https://www.lkl-zero.top/2026/07/20/2026-07-20-goodbye-openclaw/",
+  "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png",
+  "datePublished": "2026-07-19T16:00:00.000Z",
+  "dateModified": "2026-07-20T13:29:21.536Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "LKL-ZREO",
+      "url": "https://www.lkl-zero.top"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/images/favicon.png"><link rel="canonical" href="https://www.lkl-zero.top/2026/07/20/2026-07-20-goodbye-openclaw/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.css" media="print" onload="this.media='all'"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', 'ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          const hour = new Date().getHours()
+          const isNight = hour <= 6 || hour >= 18
+          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
+          else theme === 'light' ? activateLightMode() : activateDarkMode()
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: {"defaultEncoding":2,"translateDelay":0,"msgToTraditionalChinese":"繁","msgToSimplifiedChinese":"简"},
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: true,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'medium_zoom',
+  Snackbar: {"chs_to_cht":"已切换为繁体中文","cht_to_chs":"已切换为简体中文","day_to_night":"已切换为深色模式","night_to_day":"已切换为浅色模式","bgLight":"#49b1f5","bgDark":"#1f1f1f","position":"top-right"},
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: true,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/animate.min.css" media="print" onload="this.media='screen'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">46</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">127</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">30</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-19T16:00:00.000Z" title="发表于 2026-07-20 00:00:00">2026-07-20</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-20T13:29:21.536Z" title="更新于 2026-07-20 21:29:21">2026-07-20</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/EduMind/">EduMind</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>7分钟</span></span><span class="post-meta-separator">|</span><span id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="twikoo_visitors"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-07-20 21:29:21&quot;}" hidden></div><h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>EduMind 是一个 AI 驱动的智能教学平台，技术栈是 Spring Boot 4 + Vue 3，核心功能包括 RAG 知识库检索、作业批改、课堂实时互动和 QQ 机器人答疑。</p>
+<p>从项目初期开始，所有 LLM 调用都经过 <a target="_blank" rel="noopener" href="https://github.com/openclaw/openclaw">OpenClaw</a>——一个开源的 AI Agent 框架（38 万 star，2026 年仍然极度活跃）。它负责：接收 QQ 消息、调用 MCP 工具、管理会话、路由 LLM 请求。</p>
+<p>用了三个月后，我们决定把它从项目里彻底移除。这篇文章记录了为什么、怎么做、以及做完之后的架构变成了什么样。</p>
+<h2 id="为什么要移除-OpenClaw？"><a href="#为什么要移除-OpenClaw？" class="headerlink" title="为什么要移除 OpenClaw？"></a>为什么要移除 OpenClaw？</h2><h3 id="1-品类错配"><a href="#1-品类错配" class="headerlink" title="1. 品类错配"></a>1. 品类错配</h3><p>OpenClaw 是一个<strong>聊天机器人框架</strong>——它的核心价值是多频道消息（QQ&#x2F;微信&#x2F;Discord&#x2F;Telegram）、Skill 插件系统、多 Agent 工作流。但 EduMind 只用了它最小的一块功能：作为一个 HTTP 代理把请求转发给 DeepSeek。</p>
+<p>这就像租了一整层办公楼，只用了两间房，其中一间还漏水。</p>
+<h3 id="2-问题积累"><a href="#2-问题积累" class="headerlink" title="2. 问题积累"></a>2. 问题积累</h3><p>三个月的使用中，OpenClaw 带来的问题逐渐超过了它提供的便利：</p>
+<ul>
+<li><strong>视觉模型无法路由</strong>：<code>VisionPdfParser</code> 早就被迫绕过 OpenClaw 直连 Kimi API——代码注释里直接写着”OpenClaw 无法在文本模型和视觉模型间自动路由”</li>
+<li><strong>中间层延迟</strong>：每个 LLM 调用多一次 HTTP 往返（Java → OpenClaw → LLM API），积少成多</li>
+<li><strong>排查困难</strong>：出问题时要同时排查 Java、OpenClaw、LLM API 三层，”是 OpenClaw 的问题还是我的问题”成了日常</li>
+<li><strong>多一个运维依赖</strong>：每次开发环境启动都要额外启动一个 Node.js 服务</li>
+</ul>
+<h3 id="3-核心能力用不上"><a href="#3-核心能力用不上" class="headerlink" title="3. 核心能力用不上"></a>3. 核心能力用不上</h3><p>OpenClaw 最强的多 Agent 编排、Skill 热插拔、跨频道消息路由——EduMind 一个都没用。只用了 <code>/chat/completions</code> 代理这一个边角料功能。</p>
+<h2 id="替代方案分析"><a href="#替代方案分析" class="headerlink" title="替代方案分析"></a>替代方案分析</h2><p>评估了三种方案：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>代表产品</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AI 网关</td>
+<td>One API &#x2F; New API &#x2F; LiteLLM</td>
+<td>多一个 Go 服务，运维负担从 OpenClaw 换成另一个网关，不值得</td>
+</tr>
+<tr>
+<td>Agent 框架</td>
+<td>LangChain &#x2F; CrewAI &#x2F; AutoGen</td>
+<td>抽象层太多，EduMind 已有的 WorkflowEngine + StructuredOutputInvoker 已经够用</td>
+</tr>
+<tr>
+<td><strong>自研</strong></td>
+<td>Agent Loop + 直连 API</td>
+<td>300 行核心代码，零外部依赖，完全掌控</td>
+</tr>
+</tbody></table>
+<p>选了自研。原因很简单：EduMind 已经自研了 RAG 全链路、DAG 工作流引擎、MCP JSON-RPC 端点、Redis Stream 消费框架——多 Agent 编排不过是这些轮子的自然延伸。</p>
+<h2 id="实现方案"><a href="#实现方案" class="headerlink" title="实现方案"></a>实现方案</h2><p>核心思路：<strong>保留 <code>OpenClawService</code> 接口，换一个实现。</strong></p>
+<h3 id="改动范围"><a href="#改动范围" class="headerlink" title="改动范围"></a>改动范围</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">新建：2 个文件</span><br><span class="line">  ├── LlmProperties.java          （LLM 配置）</span><br><span class="line">  └── AgentLoopServiceImpl.java   （300 行核心循环）</span><br><span class="line"></span><br><span class="line">新增能力：</span><br><span class="line">  ├── OneBotWebSocketClient.java  （QQ 双向通信，替代 OpenClaw OneBot 插件）</span><br><span class="line"></span><br><span class="line">修改：14 个文件（配置文件 + 注释 + 废弃标记）</span><br><span class="line"></span><br><span class="line">不变：12 个消费者类 + 全部 MCP 工具 + WorkflowEngine + GradingWorkflow</span><br></pre></td></tr></table></figure>
+
+<p>架构对比：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">之前:                                  之后:</span><br><span class="line"></span><br><span class="line">Spring Boot                            Spring Boot</span><br><span class="line">    │                                       │</span><br><span class="line">    ▼                                       ├─→ DeepSeek API（直连）</span><br><span class="line">OpenClawService                              │</span><br><span class="line">    │ (HTTP)                                 ├─→ KnowledgeSearchTool（直接调 Bean）</span><br><span class="line">    ▼                                       │</span><br><span class="line">OpenClaw Gateway ──→ /mcp (HTTP 回调)        ├─→ ClassStatusTool（直接调 Bean）</span><br><span class="line">    │                                       │</span><br><span class="line">    ▼                                       └─→ OneBot WebSocket（双向收发）</span><br><span class="line">DeepSeek/Kimi API</span><br></pre></td></tr></table></figure>
+
+<h3 id="核心：Agent-Loop（50-行）"><a href="#核心：Agent-Loop（50-行）" class="headerlink" title="核心：Agent Loop（50 行）"></a>核心：Agent Loop（50 行）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> (step &lt; maxSteps) &#123;</span><br><span class="line">    <span class="comment">// 1. 调 LLM（非流式）</span></span><br><span class="line">    response = POST /chat/completions &#123; model, messages, tools &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. 模型要调工具 → 直接调 Spring Bean</span></span><br><span class="line">    <span class="keyword">if</span> (response.tool_calls != <span class="literal">null</span>) &#123;</span><br><span class="line">        messages.add(assistantMsg);  <span class="comment">// 模型说&quot;我要调 searchKnowledge&quot;</span></span><br><span class="line">        <span class="keyword">for</span> (toolCall : response.tool_calls) &#123;</span><br><span class="line">            result = toolMap.get(name).execute(args);  <span class="comment">// 直接方法调用</span></span><br><span class="line">            messages.add(&#123; role: <span class="string">&quot;tool&quot;</span>, content: result &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">continue</span>;  <span class="comment">// 回到循环，模型看到工具结果继续推理</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3. 模型觉得够了 → 返回最终文本</span></span><br><span class="line">    <span class="keyword">return</span> response.content;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关键设计决策：</p>
+<ul>
+<li><strong>工具调用零 HTTP 开销</strong>：OpenClaw 的 MCP 回调走 HTTP JSON-RPC，自己做直接调 Spring Bean</li>
+<li><strong>内部循环非流式 + 最终答案流式</strong>：工具调用阶段不需要流式，最终回答才用 SSE 推给用户</li>
+<li><strong><code>@Lazy</code> 打破循环依赖</strong>：<code>AgentLoopServiceImpl → KnowledgeSearchTool → RagService → QueryRewriter → AgentLoopServiceImpl</code>，在 <code>QueryRewriter</code> 注入点加 <code>@Lazy</code> 断开</li>
+</ul>
+<h3 id="OneBot：从-HTTP-双通道到-WebSocket-单向"><a href="#OneBot：从-HTTP-双通道到-WebSocket-单向" class="headerlink" title="OneBot：从 HTTP 双通道到 WebSocket 单向"></a>OneBot：从 HTTP 双通道到 WebSocket 单向</h3><p>OpenClaw 时代，QQ 消息的收发走两条不同的路径：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">收消息: QQ → NapCat → WebSocket → OpenClaw → HTTP → Java (/mcp + /api/onebot/rag)</span><br><span class="line">发消息: Java → HTTP → NapCat → QQ</span><br></pre></td></tr></table></figure>
+
+<p>自研后统一为一条 WebSocket 连接：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">收发: QQ → NapCat → WebSocket → Java（收事件 + 发 action 都在同一条连接）</span><br></pre></td></tr></table></figure>
+
+<p>OneBot v11 协议本身就支持双向通信——WebSocket 连接上，NapCat 推送事件下来，客户端发 action 上去。之前分两条路纯粹是因为 OpenClaw 挡在中间。</p>
+<h3 id="作业批改-Prompt-升级"><a href="#作业批改-Prompt-升级" class="headerlink" title="作业批改 Prompt 升级"></a>作业批改 Prompt 升级</h3><p>从 OpenClaw 的 <code>homework-grader</code> Skill 中提取了 C 语言批改的详细规则，合并到三个 grading prompt 模板中：</p>
+<ul>
+<li><code>grading-grade.txt</code>：新增 C 语言评分维度(contentScore 70 + formatScore 30)、分级扣分表（minor 1-3 &#x2F; major 5-10 &#x2F; critical 10-20）、典型场景扣分参考</li>
+<li><code>grading-errors.txt</code>：新增 7 种 C 语言错误类型、severity 与扣分对应关系、知识点分类规则</li>
+<li><code>grading-suggestions.txt</code>：新增优先级分级、类别词模板、可执行建议规范</li>
+</ul>
+<h3 id="DevTools-踩坑"><a href="#DevTools-踩坑" class="headerlink" title="DevTools 踩坑"></a>DevTools 踩坑</h3><p>Spring Boot DevTools 的 <code>RestartClassLoader</code> 导致 <code>Course</code> 实体被两个不同 classloader 加载，出现 <code>Course cannot be cast to Course</code> 的诡异错误。<code>spring.devtools.restart.enabled=false</code> 和 <code>META-INF/spring-devtools.properties</code> 都不生效——最终从 <code>pom.xml</code> 直接删除 <code>spring-boot-devtools</code> 依赖解决。</p>
+<h2 id="架构收益"><a href="#架构收益" class="headerlink" title="架构收益"></a>架构收益</h2><h3 id="1-零外部-AI-依赖"><a href="#1-零外部-AI-依赖" class="headerlink" title="1. 零外部 AI 依赖"></a>1. 零外部 AI 依赖</h3><p>现在 EduMind 只需要这 4 个服务：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PostgreSQL + Redis + MinIO + 应用</span><br></pre></td></tr></table></figure>
+
+<p>OpenClaw 从部署清单里消失。开发环境少启动一个 Node 进程，生产环境少维护一个服务。</p>
+<h3 id="2-性能提升"><a href="#2-性能提升" class="headerlink" title="2. 性能提升"></a>2. 性能提升</h3><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>之前</th>
+<th>之后</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LLM 调用跳数</td>
+<td>Java→OpenClaw→API（2 跳）</td>
+<td>Java→API（1 跳）</td>
+</tr>
+<tr>
+<td>工具调用</td>
+<td>HTTP JSON-RPC 往返</td>
+<td>直接方法调用</td>
+</tr>
+<tr>
+<td>QQ 消息路径</td>
+<td>4 跳（含两次 HTTP 回调）</td>
+<td>1 跳 WebSocket</td>
+</tr>
+</tbody></table>
+<p>保守估计单次 QQ 问答响应时间减少 200-500ms。</p>
+<h3 id="3-可观测性"><a href="#3-可观测性" class="headerlink" title="3. 可观测性"></a>3. 可观测性</h3><p>之前 LLM 调用的 trace 埋在 OpenClaw 的日志里。现在所有调用链在 Java 侧可见——Micrometer <code>@Timed</code> 打点、<code>@CircuitBreaker</code> 熔断、日志里完整的 Agent 步数追踪。</p>
+<h3 id="4-模型自由"><a href="#4-模型自由" class="headerlink" title="4. 模型自由"></a>4. 模型自由</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># .env 里一行切换</span><br><span class="line">LLM_MODEL=deepseek-v4-pro     # 强推理</span><br><span class="line">LLM_MODEL=deepseek-v4-flash   # 快推理</span><br><span class="line">LLM_MODEL=kimi-k2-0701-preview # Kimi</span><br><span class="line"></span><br><span class="line"># 不同场景不同模型</span><br><span class="line">edumind.llm.model=deepseek-v4-flash  # 默认聊天用快的</span><br><span class="line"># 审校 Agent 可以用更强的模型（通过 AgentConfig 扩展）</span><br></pre></td></tr></table></figure>
+
+<p>不再受 OpenClaw agent 路由的限制，多模型供应商随意切换。</p>
+<h3 id="5-课程级个性化"><a href="#5-课程级个性化" class="headerlink" title="5. 课程级个性化"></a>5. 课程级个性化</h3><p>之前 OpenClaw 只有一个全局的 Jarvis system prompt。现在 <code>resolveSystemPrompt()</code> 根据 QQ 群号 → 班级 → 课程 → <code>course.system_prompt</code>，不同班级自动加载不同的 prompt。群聊优先用群绑定的课程，私聊不绑定课程让学生自由提问。</p>
+<h2 id="可扩展性"><a href="#可扩展性" class="headerlink" title="可扩展性"></a>可扩展性</h2><p>做完这次改造后，项目处于一个很舒服的位置来应对未来的需求：</p>
+<h3 id="多-Agent-编排（零成本起步）"><a href="#多-Agent-编排（零成本起步）" class="headerlink" title="多 Agent 编排（零成本起步）"></a>多 Agent 编排（零成本起步）</h3><p>EduMind 已有的组件距离多 Agent 只差一层抽象：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">已有: WorkflowEngine（DAG 拓扑） + StructuredOutputInvoker（JSON 重试） + ToolDefinition（工具接口）</span><br><span class="line">缺少: AgentConfig（name + model + systemPrompt + allowedTools）</span><br><span class="line"></span><br><span class="line">加上 AgentConfig 后：</span><br><span class="line">  串行链: WorkflowEngine DAG，每个节点用不同 AgentConfig</span><br><span class="line">  并行投票: CompletableFuture.allOf(agentA, agentB, agentC)</span><br><span class="line">  主编-子Agent: 把子 Agent 包装成 ToolDefinition</span><br></pre></td></tr></table></figure>
+
+<p><code>GradingWorkflow</code> 的 GRADE → ERROR_ANALYSIS → SUGGESTION 三个节点本质上已经是三个 Agent——各有专属 prompt、各自调用 LLM、产出结构化结果交给下一个节点。</p>
+<h3 id="模型供应商扩展"><a href="#模型供应商扩展" class="headerlink" title="模型供应商扩展"></a>模型供应商扩展</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// LlmProperties 加一个 providers map</span></span><br><span class="line">providers:</span><br><span class="line">  deepseek:</span><br><span class="line">    base-url: https:<span class="comment">//api.deepseek.com</span></span><br><span class="line">    api-key: sk-xxx</span><br><span class="line">  kimi:</span><br><span class="line">    base-url: https:<span class="comment">//api.moonshot.cn/v1</span></span><br><span class="line">    api-key: sk-xxx</span><br><span class="line"></span><br><span class="line"><span class="comment">// AgentConfig 里指定 provider</span></span><br><span class="line">AgentConfig.builder()</span><br><span class="line">    .provider(<span class="string">&quot;kimi&quot;</span>)       <span class="comment">// 视觉任务用 Kimi</span></span><br><span class="line">    .model(<span class="string">&quot;kimi-k2.6&quot;</span>)</span><br><span class="line">    .build()</span><br></pre></td></tr></table></figure>
+
+<h3 id="新工具接入"><a href="#新工具接入" class="headerlink" title="新工具接入"></a>新工具接入</h3><p>MCP 工具体系保持不变，新增工具只需实现 <code>ToolDefinition</code> 接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">WeatherTool</span> <span class="keyword">implements</span> <span class="title class_">ToolDefinition</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">name</span><span class="params">()</span> &#123; <span class="keyword">return</span> <span class="string">&quot;queryWeather&quot;</span>; &#125;</span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">execute</span><span class="params">(Map&lt;String, Object&gt; args)</span> &#123; ... &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Spring 自动扫描 <code>ToolDefinition</code> 的所有实现，<code>AgentLoopServiceImpl</code> 自动注册。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>移除 OpenClaw 的本质不是”换一个网关”，而是<strong>认清自己真正需要的抽象层次</strong>。</p>
+<p>OpenClaw 提供的 Tool-Calling Loop 用 50 行 Java 就能实现。它提供的多 Agent 编排，EduMind 的 <code>WorkflowEngine</code> + <code>GradingWorkflow</code> 已经做到了，且更贴合教学业务。它提供的多频道消息路由，一条 WebSocket 连接 + OneBot v11 协议就够了。</p>
+<p>真正难的东西——RAG 检索、Embedding 推理、Reranker 精排、DAG 工作流引擎、结构化输出重试——EduMind 早已自己搞定。</p>
+<p><strong>当你的基础设施比框架更懂你的业务时，框架就是多余的中间层。</strong></p>
+<hr>
+<p><em>本次改动总计：新建 4 个文件，修改 14 个文件，核心代码约 500 行。12 个消费者类零改动。移除 <code>spring-boot-devtools</code> 依赖解决 classloader 冲突。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top">LKL-ZREO</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top/2026/07/20/2026-07-20-goodbye-openclaw/">https://www.lkl-zero.top/2026/07/20/2026-07-20-goodbye-openclaw/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://www.lkl-zero.top" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/RAG/">RAG</a><a class="post-meta__tags" href="/tags/OpenClaw/">OpenClaw</a><a class="post-meta__tags" href="/tags/OneBot/">OneBot</a><a class="post-meta__tags" href="/tags/%E4%BD%9C%E4%B8%9A%E6%89%B9%E6%94%B9/">作业批改</a><a class="post-meta__tags" href="/tags/QQ%E6%9C%BA%E5%99%A8%E4%BA%BA/">QQ机器人</a><a class="post-meta__tags" href="/tags/Agent/">Agent</a><a class="post-meta__tags" href="/tags/LLM/">LLM</a><a class="post-meta__tags" href="/tags/%E6%9E%B6%E6%9E%84/">架构</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移</div></div><div class="info-2"><div class="info-item-1">背景：710 行的「手工耿」AgentEduMind 项目的 Agent 层经历了三代：    代 实现 Agent 循环 工具调用 HTTP 客户端 状态    1 OpenClaw 网关 网关托管 网关路由 RestClient 已删除   2 AgentLoopServiceImpl 手写 while 循环 手动 JSON Schema RestClient&#x2F;WebClient 本文主角   3 LangChain4jAgentService AiServices 内置 @Tool 注解 ChatModel 当前   第二代 AgentLoopServiceImpl 是一个 714 行的单体类，核心逻辑大概长这样： 123456789101112131415161718192021222324// 手写 Agent 循环（简化版）while (step &lt; maxSteps) &#123;    step++;    // ① 手写请求体（含手动构建的 tools JSON Schema）    Map&lt;String, Object&gt; body ...</div></div></div></a><a class="pagination-related" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录</div></div><div class="info-2"><div class="info-item-1">一次针对 EduMind 实时课堂模块的集中攻关，横跨安全、性能、可靠性和 AI 生成能力四个维度，一天内完成 16 项修复与功能新增。   一、安全纵向加固：学生身份防冒用问题/api/live/join 是公开接口，学生自报学号就能拿到合法 JWT。WebSocket Handler 又直接信任消息体中的 studentId，导致学生 A 可以任意冒用学生 B 的身份答题、举手、提问。 方案：四层纵深防御 Join 入口验证 — 在 LiveSessionService.joinSession 中增加班级花名册校验：如果教师已导入学生名单，则不在名单内的学号拒绝加入 WebSocket Handler 覆盖身份 — InteractionHandler、ReactionHandler、QASessionHandler 全部改为从 STOMP Session Attributes（CONNECT 阶段 JWT 验证后存储）读取学生身份，忽略 payload 中的 studentId/studentName REST 端点修复 — markConfusion 从 JWT 提取身份...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/12/2026-05-12-rag-system-upgrade/" title="RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-12</div><div class="info-item-2">RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入</div></div><div class="info-2"><div class="info-item-1">背景为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。 时间线   时间 事件    10:09 发现 RAG 接口返回 {&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}   11:00 定位根因：SIMILARITY_THRESHOLD &#x3D; 0.75 对哈希向量过高   11:13 实现 RRF 双路混合检索   11:27 修复 SQL 拼接空格&#x2F;LIMIT 类型匹配   11:32 修复 LIMIT 参数类型   11:50 Gateway 重启导致 OneBot 断开   14:59 升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5   15:27 模型下载完成，512 维向量就绪   15:31 pgvector 列维度不匹配报错，改表后修复   15:40 检索精度被 C 语言文档淹没，Top-K 从 3 提到 ...</div></div></div></a><a class="pagination-related" href="/2026/04/27/onebot-rag-integration/" title="为NapCatQQ插件添加RAG功能"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/wasaq.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-27</div><div class="info-item-2">为NapCatQQ插件添加RAG功能</div></div><div class="info-2"><div class="info-item-1">背景正在开发的作业批改系统需要支持 QQ 群聊答疑功能。学生通过 QQ 向机器人提问时，希望机器人能够基于上传的教学文档（知识库）进行回答，而不是仅依赖模型自身的知识。 架构设计最终架构1学生QQ提问 → NapCat(WS) → OpenClaw OneBot插件 → RAG增强 → 贾维斯Agent → OpenClaw → 回复学生  关键点：  在 OneBot 插件层拦截消息，调用后端 RAG 接口增强 prompt 增强后的消息再发给 Agent 处理 复用现有的向量检索和文档存储系统  实现过程1. 后端接口开发创建 OnebotRagController.java，提供 RAG 增强接口： 123456789101112131415161718192021222324@PostMapping(&quot;/rag&quot;)public ResponseEntity&lt;RagResponse&gt; rag(@RequestBody RagRequest request) &#123;    // 1. RAG 检索    List&lt;String&gt...</div></div></div></a><a class="pagination-related" href="/2026/05/21/c-homework-grading-platform-report/" title="C语言作业智能批改与学情分析平台 — 项目汇报"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-21</div><div class="info-item-2">C语言作业智能批改与学情分析平台 — 项目汇报</div></div><div class="info-2"><div class="info-item-1">一、项目定位一个面向 C 语言教学的全链路智能平台：学生提交代码 → AI 自动批改 → 多维度学情分析 → QQ 群实时通知 → RAG 知识库辅助教学决策。 一句话：把教师从重复批改中解放出来，把教学决策从”凭感觉”变成”看数据”。  二、核心业务流程12345678910111213141516171819202122232425262728293031323334学生提交代码(QQ/Web)      │      ▼  文件名解析 ─── 学号_姓名_班级_作业名.c  (正则提取，无需登录)      │      ▼  提交次数校验(最多3次) + 班级校验      │      ▼  Redis Stream 异步队列      │         │      ▼         ▼  AI 批改     定时提醒(QQ群+私聊)  (OpenClaw   24h/1h截止预警   Agent)     全员完成播报      │      ▼  JSON 结构化结果  ├── totalScore / overallComment  ├── strength...</div></div></div></a><a class="pagination-related" href="/2026/05/10/2026-05-10-homework-system-qq-bot/" title="作业批改系统开发实录：QQ机器人提醒功能实现"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/ff.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-10</div><div class="info-item-2">作业批改系统开发实录：QQ机器人提醒功能实现</div></div><div class="info-2"><div class="info-item-1">前言今天为作业批改系统增加了QQ机器人提醒功能，包括作业截止提醒、成绩不理想私聊提醒等。记录一下实现过程和遇到的问题。   功能需求 作业截止前群提醒 - 在截止前24小时和1小时发送群消息 成绩不理想私聊提醒 - 分数&lt;60分时私聊学生 首次提交绑定QQ号 - 收集学生QQ号用于后续提醒  架构设计12345┌─────────────┐     HTTP      ┌─────────────┐│   后端服务   │◄────────────►│   Napcat    ││  (Spring    │   OneBot协议  │  (QQ机器人)  ││   Boot)     │               │             │└─────────────┘               └─────────────┘  选择直接调用 Napcat HTTP 接口，而不是通过 OpenClaw Gateway，这样可以：  降低延迟 代码逻辑更清晰 AI对话和消息发送解耦  核心实现1. OneBot HTTP 服务12345678910111213141...</div></div></div></a><a class="pagination-related" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-19</div><div class="info-item-2">实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录</div></div><div class="info-2"><div class="info-item-1">一次针对 EduMind 实时课堂模块的集中攻关，横跨安全、性能、可靠性和 AI 生成能力四个维度，一天内完成 16 项修复与功能新增。   一、安全纵向加固：学生身份防冒用问题/api/live/join 是公开接口，学生自报学号就能拿到合法 JWT。WebSocket Handler 又直接信任消息体中的 studentId，导致学生 A 可以任意冒用学生 B 的身份答题、举手、提问。 方案：四层纵深防御 Join 入口验证 — 在 LiveSessionService.joinSession 中增加班级花名册校验：如果教师已导入学生名单，则不在名单内的学号拒绝加入 WebSocket Handler 覆盖身份 — InteractionHandler、ReactionHandler、QASessionHandler 全部改为从 STOMP Session Attributes（CONNECT 阶段 JWT 验证后存储）读取学生身份，忽略 payload 中的 studentId/studentName REST 端点修复 — markConfusion 从 JWT 提取身份...</div></div></div></a><a class="pagination-related" href="/2026/05/18/2026-05-18-homework-system-optimization/" title="作业批改系统高并发改造与 OpenClaw 集成实战"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-18</div><div class="info-item-2">作业批改系统高并发改造与 OpenClaw 集成实战</div></div><div class="info-2"><div class="info-item-1">概述今天对作业批改系统进行了一次全面改造，解决了三大问题：高并发下的 AI 批改瓶颈、数据库查询性能、以及 OpenClaw OneBot 插件的消息分发故障。本文记录完整的排障过程和解决方案。  一、异步批改：从同步阻塞到 Redis Stream问题原系统 HomeworkController.submitHomework() 的流程是： 1学生提交 → Controller 线程阻塞等待 OpenClaw AI 批改(30-300s) → 写DB → 返回  30 个学生同时提交 → 30 个 Tomcat 线程全阻塞 → 新请求被拒绝 → 数据库连接池(HikariCP max 20)耗尽 → 雪崩。 方案参考 [InterviewGuide] 的 Redis Stream 异步架构： 123提交 → 入库(PENDING) → 入队(Redis Stream) → 秒回&quot;已收到&quot;                         ↓              单线程 Consumer → 调 OpenClaw → 写回结果 → ACK  实现新增 5 ...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="twikoo-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">LKL-ZREO</div><div class="author-info-description">全栈开发 | Spring Boot | RAG | AI Agent | 分布式系统 — 龙空灵的技术博客</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">46</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">127</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">30</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E7%A7%BB%E9%99%A4-OpenClaw%EF%BC%9F"><span class="toc-number">2.</span> <span class="toc-text">为什么要移除 OpenClaw？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E5%93%81%E7%B1%BB%E9%94%99%E9%85%8D"><span class="toc-number">2.1.</span> <span class="toc-text">1. 品类错配</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E9%97%AE%E9%A2%98%E7%A7%AF%E7%B4%AF"><span class="toc-number">2.2.</span> <span class="toc-text">2. 问题积累</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B%E7%94%A8%E4%B8%8D%E4%B8%8A"><span class="toc-number">2.3.</span> <span class="toc-text">3. 核心能力用不上</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%BF%E4%BB%A3%E6%96%B9%E6%A1%88%E5%88%86%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">替代方案分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%A1%88"><span class="toc-number">4.</span> <span class="toc-text">实现方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%94%B9%E5%8A%A8%E8%8C%83%E5%9B%B4"><span class="toc-number">4.1.</span> <span class="toc-text">改动范围</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%EF%BC%9AAgent-Loop%EF%BC%8850-%E8%A1%8C%EF%BC%89"><span class="toc-number">4.2.</span> <span class="toc-text">核心：Agent Loop（50 行）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#OneBot%EF%BC%9A%E4%BB%8E-HTTP-%E5%8F%8C%E9%80%9A%E9%81%93%E5%88%B0-WebSocket-%E5%8D%95%E5%90%91"><span class="toc-number">4.3.</span> <span class="toc-text">OneBot：从 HTTP 双通道到 WebSocket 单向</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%9C%E4%B8%9A%E6%89%B9%E6%94%B9-Prompt-%E5%8D%87%E7%BA%A7"><span class="toc-number">4.4.</span> <span class="toc-text">作业批改 Prompt 升级</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#DevTools-%E8%B8%A9%E5%9D%91"><span class="toc-number">4.5.</span> <span class="toc-text">DevTools 踩坑</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E6%94%B6%E7%9B%8A"><span class="toc-number">5.</span> <span class="toc-text">架构收益</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E9%9B%B6%E5%A4%96%E9%83%A8-AI-%E4%BE%9D%E8%B5%96"><span class="toc-number">5.1.</span> <span class="toc-text">1. 零外部 AI 依赖</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87"><span class="toc-number">5.2.</span> <span class="toc-text">2. 性能提升</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7"><span class="toc-number">5.3.</span> <span class="toc-text">3. 可观测性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E6%A8%A1%E5%9E%8B%E8%87%AA%E7%94%B1"><span class="toc-number">5.4.</span> <span class="toc-text">4. 模型自由</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E8%AF%BE%E7%A8%8B%E7%BA%A7%E4%B8%AA%E6%80%A7%E5%8C%96"><span class="toc-number">5.5.</span> <span class="toc-text">5. 课程级个性化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%AF%E6%89%A9%E5%B1%95%E6%80%A7"><span class="toc-number">6.</span> <span class="toc-text">可扩展性</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%9A-Agent-%E7%BC%96%E6%8E%92%EF%BC%88%E9%9B%B6%E6%88%90%E6%9C%AC%E8%B5%B7%E6%AD%A5%EF%BC%89"><span class="toc-number">6.1.</span> <span class="toc-text">多 Agent 编排（零成本起步）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E4%BE%9B%E5%BA%94%E5%95%86%E6%89%A9%E5%B1%95"><span class="toc-number">6.2.</span> <span class="toc-text">模型供应商扩展</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%96%B0%E5%B7%A5%E5%85%B7%E6%8E%A5%E5%85%A5"><span class="toc-number">6.3.</span> <span class="toc-text">新工具接入</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移"/></a><div class="content"><a class="title" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移">手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移</a><time datetime="2026-07-21T15:00:00.000Z" title="发表于 2026-07-21 23:00:00">2026-07-21</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/20/2026-07-20-goodbye-openclaw/" title="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排"/></a><div class="content"><a class="title" href="/2026/07/20/2026-07-20-goodbye-openclaw/" title="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排">告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排</a><time datetime="2026-07-19T16:00:00.000Z" title="发表于 2026-07-20 00:00:00">2026-07-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"/></a><div class="content"><a class="title" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录">实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录</a><time datetime="2026-07-19T10:00:00.000Z" title="发表于 2026-07-19 18:00:00">2026-07-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘"/></a><div class="content"><a class="title" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘">课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘</a><time datetime="2026-07-15T16:00:00.000Z" title="发表于 2026-07-16 00:00:00">2026-07-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/15/2026-07-15-edumind-source-deep-dive/" title="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘"/></a><div class="content"><a class="title" href="/2026/07/15/2026-07-15-edumind-source-deep-dive/" title="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘">EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘</a><time datetime="2026-07-15T10:00:00.000Z" title="发表于 2026-07-15 18:00:00">2026-07-15</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By LKL-ZREO</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = {"path":"window.location.pathname"}
+
+  const getCount = () => {
+    const countELement = document.getElementById('twikoo-count')
+    if(!countELement) return
+    twikoo.getCommentsCount({
+      envId: 'https://twikoo.lkl-zero.top',
+      region: '',
+      urls: [window.location.pathname],
+      includeReply: false
+    }).then(res => {
+      countELement.textContent = res[0].count
+    }).catch(err => {
+      console.error(err)
+    })
+  }
+
+  const init = (el = document, path = location.pathname) => {
+    twikoo.init({
+      el: el.querySelector('#twikoo-wrap'),
+      envId: 'https://twikoo.lkl-zero.top',
+      region: '',
+      onCommentLoaded: () => {
+        btf.loadLightbox(document.querySelectorAll('#twikoo .tk-content img:not(.tk-owo-emotion)'))
+      },
+      ...option,
+      path: isShuoshuo ? path : (option && option.path) || path
+    })
+
+    
+
+    isShuoshuo && (window.shuoshuoComment.destroyTwikoo = () => {
+      if (el.children.length) {
+        el.innerHTML = ''
+        el.classList.add('no-comment')
+      }
+    })
+  }
+
+  const loadTwikoo = (el, path) => {
+    if (typeof twikoo === 'object') setTimeout(() => init(el, path), 0)
+    else btf.getScript('https://cdn.jsdelivr.net/npm/twikoo@1.6.44/dist/twikoo.all.min.js').then(() => init(el, path))
+  }
+
+  if (isShuoshuo) {
+    'Twikoo' === 'Twikoo'
+      ? window.shuoshuoComment = { loadComment: loadTwikoo }
+      : window.loadOtherComment = loadTwikoo
+    return
+  }
+
+  if ('Twikoo' === 'Twikoo' || !false) {
+    if (false) btf.loadComment(document.getElementById('twikoo-wrap'), loadTwikoo)
+    else loadTwikoo()
+  } else {
+    window.loadOtherComment = loadTwikoo
+  }
+})()</script></div><script src="/js/click-ripple.js"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css"><script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/meting/dist/Meting.min.js"></script><meting-js
+  server="netease"
+  type="playlist"
+  id="716724619"
+  fixed="true"
+  mini="true"
+  autoplay="false"
+  loop="all"
+  order="random"
+  preload="auto"
+  volume="0.5"
+  mutex="true"
+  theme="#49b1f5">
+</meting-js>
+<script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = false;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.5.4"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_categories_card_injector_config(){
+    // 检查容器是否存在
+    var parent_div_git = document.getElementById('recent-posts');
+    // 如果容器不存在，则动态创建
+    if (!parent_div_git) {
+      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
+      // 创建新容器（默认插入到页面主体顶部）
+      parent_div_git = document.createElement('div');
+      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
+      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
+    }
+    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png);"> <a class="categoryBar-list-link" href="/categories/AI-工程/">AI 工程</a><span class="categoryBar-list-count">10</span><span class="categoryBar-list-descr">后端开发</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/">后端开发</a><span class="categoryBar-list-count">13</span><span class="categoryBar-list-descr">AI 工程</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png);"> <a class="categoryBar-list-link" href="/categories/AI-工程/后端开发/">后端开发</a><span class="categoryBar-list-count">4</span><span class="categoryBar-list-descr">嵌入式开发</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/高并发/">高并发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">学习笔记</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/项目实战/">项目实战</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">作品集</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/面试复盘/">面试复盘</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/面试准备/">面试准备</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/">AI</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/学习笔记/">学习笔记</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端开发/AI-工程/">AI 工程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/嵌入式开发/">嵌入式开发</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目汇报/">项目汇报</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/博客/">博客</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/系统架构/">系统架构</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/作品集/">作品集</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/">后端</a><span class="categoryBar-list-count">4</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/作品集/作品集/">作品集</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/Spring-Boot/">Spring Boot</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/DevOps/">DevOps</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/开源/">开源</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/开源/教程/">教程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/Java/">Java</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目介绍/">项目介绍</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/全栈/">全栈</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/科普/">科普</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目进展/">项目进展</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目复盘/">项目复盘</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/Spring-Boot/生产实践/">生产实践</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目复盘/AI-工程/">AI 工程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/EduMind/">EduMind</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+    console.log('已挂载 butterfly_categories_card');
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+  }
+  // 路径匹配逻辑（使用 startsWith）
+  if (location.pathname.startsWith('/categories/,/tags/,/archives/,/') || '/categories/,/tags/,/archives/,/' === 'all') {
+    butterfly_categories_card_injector_config();
+  }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/wasaq.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">从零构建基于 Spring Boot + Vue3 + RAG 的智能作业批改平台，涵盖架构设计、智能文档分块、SSE 流式对话、JWT 认证等核心技术实现。</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><div class="js-pjax"><script async="async">var arr = document.getElementsByClassName('recent-post-item');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '1s');
+    arr[i].setAttribute('data-wow-delay', '0s');
+    arr[i].setAttribute('data-wow-offset', '100');
+    arr[i].setAttribute('data-wow-iteration', '1');
+  }</script><script async="async">var arr = document.getElementsByClassName('card-widget');
+for(var i = 0;i<arr.length;i++){
+    arr[i].classList.add('wow');
+    arr[i].classList.add('animate__zoomIn');
+    arr[i].setAttribute('data-wow-duration', '');
+    arr[i].setAttribute('data-wow-delay', '');
+    arr[i].setAttribute('data-wow-offset', '');
+    arr[i].setAttribute('data-wow-iteration', '');
+  }</script></div><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow.min.js"></script><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow_init.js"></script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
