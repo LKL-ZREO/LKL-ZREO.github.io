@@ -4370,12 +4370,12 @@ figure.highlight pre .javascript .function {
   transition: all 0.5s;
 }
 #page-header.full_page {
-  height: 100vh;
+  height: 68vh;
   background-attachment: fixed;
 }
 #page-header.full_page #site-info {
   position: absolute;
-  top: 43%;
+  top: 38%;
   padding: 0 10px;
   width: 100%;
 }
@@ -6199,6 +6199,28 @@ figure.highlight pre .javascript .function {
 }
 .medium-zoom-overlay {
   z-index: 99999 !important;
+}
+.mermaid-wrap {
+  position: relative;
+  margin: 0 0 20px;
+  background: var(--card-bg);
+  text-align: center;
+}
+.mermaid-wrap > svg {
+  max-width: 100%;
+  height: 100%;
+  cursor: grab;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+.mermaid-wrap > svg:active {
+  cursor: grabbing;
+}
+pre > code.mermaid {
+  display: none;
 }
 .utterances,
 .fb-comments iframe {

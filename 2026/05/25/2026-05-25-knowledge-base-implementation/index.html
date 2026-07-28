@@ -1,29 +1,26 @@
-<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>知识库目录树与共享功能实现全记录 | LKL-ZREO</title><meta name="author" content="LKL-ZREO"><meta name="copyright" content="LKL-ZREO"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="概述本文记录了为作业批改系统实现知识库模块的全过程，包括目录树浏览、文件管理、共享知识库协作功能，以及期间遇到的各种问题和解决方案。 最终效果：用户可以创建个人知识库目录树，上传文件、管理文件夹；同时支持创建共享知识库，多人协作上传和管理文档。  一、目录树知识库（初版）需求将知识库管理页面改为类似腾讯 ima 的目录树形式，支持：  文件夹&#x2F;文件的无限层级嵌套 展开折叠 右键菜单（新建">
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>教学知识库与学情分析：目录树、数据隔离和知识点热力图 | LKL-ZREO</title><meta name="author" content="LKL-ZREO"><meta name="copyright" content="LKL-ZREO"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="复盘 EduMind 知识库从目录树和共享协作，到租户数据隔离、教师驱动知识点管理与学情热力图的完整演进。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="知识库目录树与共享功能实现全记录">
+<meta property="og:title" content="教学知识库与学情分析：目录树、数据隔离和知识点热力图">
 <meta property="og:url" content="https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/index.html">
 <meta property="og:site_name" content="LKL-ZREO">
-<meta property="og:description" content="概述本文记录了为作业批改系统实现知识库模块的全过程，包括目录树浏览、文件管理、共享知识库协作功能，以及期间遇到的各种问题和解决方案。 最终效果：用户可以创建个人知识库目录树，上传文件、管理文件夹；同时支持创建共享知识库，多人协作上传和管理文档。  一、目录树知识库（初版）需求将知识库管理页面改为类似腾讯 ima 的目录树形式，支持：  文件夹&#x2F;文件的无限层级嵌套 展开折叠 右键菜单（新建">
+<meta property="og:description" content="复盘 EduMind 知识库从目录树和共享协作，到租户数据隔离、教师驱动知识点管理与学情热力图的完整演进。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png">
 <meta property="article:published_time" content="2026-05-24T16:00:00.000Z">
-<meta property="article:modified_time" content="2026-06-15T14:43:12.136Z">
+<meta property="article:modified_time" content="2026-07-28T02:35:22.771Z">
 <meta property="article:author" content="LKL-ZREO">
-<meta property="article:tag" content="Element Plus">
-<meta property="article:tag" content="Flyway">
+<meta property="article:tag" content="EduMind">
 <meta property="article:tag" content="PostgreSQL">
-<meta property="article:tag" content="共享协作">
-<meta property="article:tag" content="目录树">
-<meta property="article:tag" content="知识库">
+<meta property="article:tag" content="RAG">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png"><script type="application/ld+json">{
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  "headline": "知识库目录树与共享功能实现全记录",
+  "headline": "教学知识库与学情分析：目录树、数据隔离和知识点热力图",
   "url": "https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/",
   "image": "https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png",
   "datePublished": "2026-05-24T16:00:00.000Z",
-  "dateModified": "2026-06-15T14:43:12.136Z",
+  "dateModified": "2026-07-28T02:35:22.771Z",
   "author": [
     {
       "@type": "Person",
@@ -163,11 +160,11 @@
   },
   autoDarkmode: false
 }</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
-  title: '知识库目录树与共享功能实现全记录',
+  title: '教学知识库与学情分析：目录树、数据隔离和知识点热力图',
   isHighlightShrink: false,
   isToc: true,
   pageType: 'post'
-}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/animate.min.css" media="print" onload="this.media='screen'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+}</script><link rel="stylesheet" href="/css/页脚渐变.css"><link rel="stylesheet" href="/css/custom.css"><meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
   const $loadingBox = document.getElementById('loading-box')
   const $body = document.body
   const preloader = {
@@ -197,7 +194,10 @@
     btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
     btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
   }
-})()</script><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">46</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">127</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">30</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">知识库目录树与共享功能实现全记录</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">知识库目录树与共享功能实现全记录</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-24T16:00:00.000Z" title="发表于 2026-05-25 00:00:00">2026-05-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-06-15T14:43:12.136Z" title="更新于 2026-06-15 22:43:12">2026-06-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI-%E5%B7%A5%E7%A8%8B/">AI 工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">1.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>6分钟</span></span><span class="post-meta-separator">|</span><span id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="twikoo_visitors"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-06-15 22:43:12&quot;}" hidden></div><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>本文记录了为作业批改系统实现知识库模块的全过程，包括目录树浏览、文件管理、共享知识库协作功能，以及期间遇到的各种问题和解决方案。</p>
+})()</script><div class="bg-animation" id="web_bg" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%914K-4K%E5%A3%81%E7%BA%B8.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">25</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/projects/"><i class="fa-fw fas fa-diagram-project"></i><span> 项目</span></a></div><div class="menus_item"><a class="site-page" href="/topics/"><i class="fa-fw fas fa-book-open"></i><span> 专题</span></a></div><div class="menus_item"><a class="site-page" href="/notes/"><i class="fa-fw fas fa-note-sticky"></i><span> 笔记</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg fixed" id="page-header" style="background-image: url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">LKL-ZREO</span></a><a class="nav-page-title" href="/"><span class="site-name">教学知识库与学情分析：目录树、数据隔离和知识点热力图</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/projects/"><i class="fa-fw fas fa-diagram-project"></i><span> 项目</span></a></div><div class="menus_item"><a class="site-page" href="/topics/"><i class="fa-fw fas fa-book-open"></i><span> 专题</span></a></div><div class="menus_item"><a class="site-page" href="/notes/"><i class="fa-fw fas fa-note-sticky"></i><span> 笔记</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div><div class="menus_item"><a class="site-page" href="/comments/"><i class="fa-fw fas fa-envelope-open"></i><span> 留言板</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> 列表</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> 音乐</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> 电影</span></a></li></ul></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">教学知识库与学情分析：目录树、数据隔离和知识点热力图</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-24T16:00:00.000Z" title="发表于 2026-05-25 00:00:00">2026-05-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-28T02:35:22.771Z" title="更新于 2026-07-28 10:35:22">2026-07-28</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E9%A1%B9%E7%9B%AE%E5%A4%8D%E7%9B%98/">项目复盘</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>8分钟</span></span><span class="post-meta-separator">|</span><span id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="twikoo_visitors"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;It has been&quot;,&quot;messageNext&quot;:&quot;days since the last update, the content of the article may be outdated.&quot;,&quot;postUpdate&quot;:&quot;2026-07-28 10:35:22&quot;}" hidden></div><blockquote>
+<p>本文合并了知识库目录树、共享协作、RAG 数据隔离故障和知识点热力图重构，重点保留可复用的数据建模与边界设计。</p>
+</blockquote>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>本文记录了为作业批改系统实现知识库模块的全过程，包括目录树浏览、文件管理、共享知识库协作功能，以及期间遇到的各种问题和解决方案。</p>
 <p>最终效果：用户可以创建个人知识库目录树，上传文件、管理文件夹；同时支持创建共享知识库，多人协作上传和管理文档。</p>
 <hr>
 <h2 id="一、目录树知识库（初版）"><a href="#一、目录树知识库（初版）" class="headerlink" title="一、目录树知识库（初版）"></a>一、目录树知识库（初版）</h2><h3 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h3><p>将知识库管理页面改为类似腾讯 ima 的目录树形式，支持：</p>
@@ -479,7 +479,351 @@
 <td><strong>~1540</strong></td>
 </tr>
 </tbody></table>
-</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top">LKL-ZREO</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/">https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://www.lkl-zero.top" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/PostgreSQL/">PostgreSQL</a><a class="post-meta__tags" href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">知识库</a><a class="post-meta__tags" href="/tags/%E7%9B%AE%E5%BD%95%E6%A0%91/">目录树</a><a class="post-meta__tags" href="/tags/%E5%85%B1%E4%BA%AB%E5%8D%8F%E4%BD%9C/">共享协作</a><a class="post-meta__tags" href="/tags/Element-Plus/">Element Plus</a><a class="post-meta__tags" href="/tags/Flyway/">Flyway</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/05/26/2026-05-26-heatmap-teacher-driven-refactoring/" title="教学仪表盘热力图重构——从AI驱动到教师驱动的知识点管理系统"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">教学仪表盘热力图重构——从AI驱动到教师驱动的知识点管理系统</div></div><div class="info-2"><div class="info-item-1">背景教学数据中心的热力图原本是 AI 批改作业时自动生成 的：AI 按闭包知识点列表返回 knowledgePoints（掌握度），后端存入 homework_knowledge 表，前端只读渲染。老师无法干预热力图内容。 本次重构目标：把热力图从 AI 自动生成的静态展示，变成老师驱动的动态管理系统——老师创建知识点，AI 批改时按老师定义的知识点对错误进行分类，热力图变成错误聚合 + 交互式筛选入口。  数据流改造对比12旧：AI 批改 → knowledgePoints(封闭列表) → homework_knowledge → 热力图新：老师创建知识点 → AI 批改(传入知识点列表) → errors[].knowledgePoint → submission_errors → 热力图 → 点击弹窗看具体错误   核心改动1. 数据库   操作 表名 说明    新建 teacher_knowledge 老师自定义知识点（class_id, name, color, sort_order）   新建 submission_errors 错误分类明细（error_text,...</div></div></div></a><a class="pagination-related" href="/2026/05/21/c-homework-grading-platform-report/" title="C语言作业智能批改与学情分析平台 — 项目汇报"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">C语言作业智能批改与学情分析平台 — 项目汇报</div></div><div class="info-2"><div class="info-item-1">一、项目定位一个面向 C 语言教学的全链路智能平台：学生提交代码 → AI 自动批改 → 多维度学情分析 → QQ 群实时通知 → RAG 知识库辅助教学决策。 一句话：把教师从重复批改中解放出来，把教学决策从”凭感觉”变成”看数据”。  二、核心业务流程12345678910111213141516171819202122232425262728293031323334学生提交代码(QQ/Web)      │      ▼  文件名解析 ─── 学号_姓名_班级_作业名.c  (正则提取，无需登录)      │      ▼  提交次数校验(最多3次) + 班级校验      │      ▼  Redis Stream 异步队列      │         │      ▼         ▼  AI 批改     定时提醒(QQ群+私聊)  (OpenClaw   24h/1h截止预警   Agent)     全员完成播报      │      ▼  JSON 结构化结果  ├── totalScore / overallComment  ├── strength...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/12/2026-05-12-rag-system-upgrade/" title="RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-12</div><div class="info-item-2">RAG 检索增强生成系统升级实录——从哈希伪向量到 ONNX 真实嵌入</div></div><div class="info-2"><div class="info-item-1">背景为「作业批改系统」的 OneBot QQ Bot 接入 RAG（检索增强生成），让学生能通过 QQ 直接向知识库文档提问。插件侧配置已开启，但后端 RAG 接口返回异常。 时间线   时间 事件    10:09 发现 RAG 接口返回 {&quot;enhancedMessage&quot;:&quot;????&quot;,&quot;hasContext&quot;:false}   11:00 定位根因：SIMILARITY_THRESHOLD &#x3D; 0.75 对哈希向量过高   11:13 实现 RRF 双路混合检索   11:27 修复 SQL 拼接空格&#x2F;LIMIT 类型匹配   11:32 修复 LIMIT 参数类型   11:50 Gateway 重启导致 OneBot 断开   14:59 升级到 ONNX 真实嵌入模型 bge-small-zh-v1.5   15:27 模型下载完成，512 维向量就绪   15:31 pgvector 列维度不匹配报错，改表后修复   15:40 检索精度被 C 语言文档淹没，Top-K 从 3 提到 ...</div></div></div></a><a class="pagination-related" href="/2026/04/21/postgresql-bigdecimal-avg-type-cast/" title="PostgreSQL AVG() 返回 BigDecimal 导致 ClassCastException 排查"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-21</div><div class="info-item-2">PostgreSQL AVG() 返回 BigDecimal 导致 ClassCastException 排查</div></div><div class="info-2"><div class="info-item-1">问题现象教学数据仪表盘中的「知识点掌握度热力图」区域空白，不显示任何数据。浏览器控制台显示接口返回 500 错误。    排查过程第一步：确认数据链路首先检查后端的 HomeworkKnowledgeMapper，发现 SQL 查询逻辑是正确的：  从 homework_knowledge 表查询知识点掌握记录 JOIN homework_evaluation 表按班级筛选 按知识点分组计算平均掌握度  数据流设计没有问题，直接查询批改结果表，避免了知识点名称映射的混乱。 第二步：定位后端异常查看后端日志，发现具体的错误信息： 1java.lang.ClassCastException: class java.math.BigDecimal cannot be cast to class java.lang.Double  错误发生在 DashboardServiceImpl.java 第 121 行。 第三步：分析根因问题出在类型转换上： 12// 原代码Double avgMastery = (Double) stat.get(&quot;avg_mastery&quot;)...</div></div></div></a><a class="pagination-related" href="/2026/05/09/homework-grading-system-dev-log-2026-05-09/" title="作业批改系统开发日志 - 2026-05-09"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-09</div><div class="info-item-2">作业批改系统开发日志 - 2026-05-09</div></div><div class="info-2"><div class="info-item-1">概述今天完成了作业批改系统的核心功能开发，包括作业任务管理、学生提交功能优化、个人成长曲线，以及前后端联调中的一系列踩坑记录。   数据库表结构变更homework_task 表（新建）用于管理老师发布的作业任务，支持截止时间、逾期扣分等特性。 1234567891011121314151617CREATE TABLE homework_task (    id SERIAL PRIMARY KEY,    class_id BIGINT NOT NULL,    task_name VARCHAR(200) NOT NULL,    description TEXT,    deadline TIMESTAMP,    allow_late BOOLEAN DEFAULT TRUE,    late_penalty INTEGER DEFAULT 0,    status VARCHAR(20) DEFAULT &#x27;active&#x27;,    created_by BIGINT,    created_at TIMESTAMP DEFAULT CURRENT_TI...</div></div></div></a><a class="pagination-related" href="/2026/07/14/2026-07-14-rag-under-the-hood-embedding-reranker/" title="RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-14</div><div class="info-item-2">RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普</div></div><div class="info-2"><div class="info-item-1">引言：一个传统 Java 开发者的困惑最近在维护 EduMind 这个 AI 教学平台时，我盯着 EmbeddingService.java 和 OnnxEmbeddingTranslator.java 看了很久——里面没有一个方法是我在业务代码里显式调用的，但它们确实在跑。更让我好奇的是：为什么需要两个模型（Embedding + Reranker）先后处理同一批数据？”加几句话”为什么就能让排序变准？ 这篇文章从我最困惑的几个问题出发，用尽可能通俗的方式讲清楚 RAG 检索管线里那几段”看不懂但又确实在跑”的代码。 如果你是一个传统后端开发者，对深度学习不太熟，这篇文章是写给你的。 一、EmbeddingService：看起来像下载器，实际上是个翻译官EmbeddingService.java 有 230 行代码，其中约 120 行在下载模型文件（model.onnx, tokenizer.json 等），看起来像个下载工具。但它的核心功能只有三个方法： 123float[] embedQuery(String query);       // 把用户问题转成向量float[...</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="twikoo-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">LKL-ZREO</div><div class="author-info-description">全栈开发 | Spring Boot | RAG | AI Agent | 分布式系统 — 龙空灵的技术博客</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">46</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">127</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">30</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-number">1.</span> <span class="toc-text">概述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E7%9B%AE%E5%BD%95%E6%A0%91%E7%9F%A5%E8%AF%86%E5%BA%93%EF%BC%88%E5%88%9D%E7%89%88%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">一、目录树知识库（初版）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9C%80%E6%B1%82"><span class="toc-number">2.1.</span> <span class="toc-text">需求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B"><span class="toc-number">2.2.</span> <span class="toc-text">技术选型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%8E%E7%AB%AF%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.3.</span> <span class="toc-text">后端设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">2.4.</span> <span class="toc-text">遇到的问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%85%B1%E4%BA%AB%E7%9F%A5%E8%AF%86%E5%BA%93"><span class="toc-number">3.</span> <span class="toc-text">二、共享知识库</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9C%80%E6%B1%82-1"><span class="toc-number">3.1.</span> <span class="toc-text">需求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="toc-number">3.2.</span> <span class="toc-text">数据模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#API"><span class="toc-number">3.3.</span> <span class="toc-text">API</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%89%8D%E7%AB%AF%E5%B8%83%E5%B1%80"><span class="toc-number">3.4.</span> <span class="toc-text">前端布局</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9D%83%E9%99%90%E6%A8%A1%E5%9E%8B"><span class="toc-number">3.5.</span> <span class="toc-text">权限模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%87%8D%E5%A4%A7%E9%97%AE%E9%A2%98"><span class="toc-number">3.6.</span> <span class="toc-text">遇到的重大问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E8%B8%A9%E5%9D%91%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">三、踩坑总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%BB%A3%E7%A0%81%E9%87%8F%E7%BB%9F%E8%AE%A1"><span class="toc-number">5.</span> <span class="toc-text">四、代码量统计</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移"/></a><div class="content"><a class="title" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移">手写 Agent 循环到 LangChain4j：一场代码减半、能力翻倍的迁移</a><time datetime="2026-07-21T15:00:00.000Z" title="发表于 2026-07-21 23:00:00">2026-07-21</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/20/2026-07-20-goodbye-openclaw/" title="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排"/></a><div class="content"><a class="title" href="/2026/07/20/2026-07-20-goodbye-openclaw/" title="告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排">告别 OpenClaw：从 AI 网关依赖到自研 Agent 编排</a><time datetime="2026-07-19T16:00:00.000Z" title="发表于 2026-07-20 00:00:00">2026-07-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录"/></a><div class="content"><a class="title" href="/2026/07/19/2026-07-19-live-classroom-hardening/" title="实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录">实时课堂模块安全加固与 AI 教学材料生成——EduMind 暑期冲刺记录</a><time datetime="2026-07-19T10:00:00.000Z" title="发表于 2026-07-19 18:00:00">2026-07-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘"/></a><div class="content"><a class="title" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘">课堂直播系统 × OneBot QQ 整合 + 备课学情仪表盘</a><time datetime="2026-07-15T16:00:00.000Z" title="发表于 2026-07-16 00:00:00">2026-07-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/15/2026-07-15-edumind-source-deep-dive/" title="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘"/></a><div class="content"><a class="title" href="/2026/07/15/2026-07-15-edumind-source-deep-dive/" title="EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘">EduMind 项目源码深度解析 —— 从 RAG 到 MCP 的全链路知识点复盘</a><time datetime="2026-07-15T10:00:00.000Z" title="发表于 2026-07-15 18:00:00">2026-07-15</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By LKL-ZREO</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"><script>(() => {
+<hr>
+<h2 id="五、数据隔离：目录树之外更重要的边界"><a href="#五、数据隔离：目录树之外更重要的边界" class="headerlink" title="五、数据隔离：目录树之外更重要的边界"></a>五、数据隔离：目录树之外更重要的边界</h2><p>目录树上线后暴露出的严重问题并不在 UI，而在检索范围：如果只按知识库状态查询，没有同时限定所有者、课程和共享关系，学生可能检索到教师库或其他课程的数据。</p>
+<p>最终所有检索入口统一使用一份范围对象：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">KnowledgeScope</span><br><span class="line">├── userId</span><br><span class="line">├── courseId</span><br><span class="line">├── ownedKnowledgeBaseIds</span><br><span class="line">├── sharedKnowledgeBaseIds</span><br><span class="line">└── role</span><br></pre></td></tr></table></figure>
+
+<p>范围在召回之前进入 SQL 和向量查询，而不是先查全库再在 Java 中过滤。后者不仅浪费资源，还可能在日志、缓存或 Reranker 阶段泄露内容。</p>
+<p>权限规则收敛为三条：</p>
+<ol>
+<li>个人库只有所有者可写；</li>
+<li>共享库成员按角色获得读写权限；</li>
+<li>教师可管理课程公共库，学生只能读取已发布内容。</li>
+</ol>
+<h2 id="六、从-AI-归类改成教师驱动"><a href="#六、从-AI-归类改成教师驱动" class="headerlink" title="六、从 AI 归类改成教师驱动"></a>六、从 AI 归类改成教师驱动</h2><p>早期热力图直接使用 AI 从作业中抽取的知识点。问题是同一个概念可能产生多个名字，例如“指针”“C 指针”“指针变量”，统计被切碎，也无法长期保持课程口径。</p>
+<p>重构后分成两层：</p>
+<ul>
+<li>教师维护课程标准知识点，作为稳定主数据；</li>
+<li>AI 只产生候选标签和匹配建议，由规则或教师确认后映射到标准知识点。</li>
+</ul>
+<p>作业、批改记录和热力图全部引用标准知识点 ID。名称调整不会破坏历史统计，AI 模型变化也不会改变课程结构。</p>
+<h2 id="七、热力图的数据流"><a href="#七、热力图的数据流" class="headerlink" title="七、热力图的数据流"></a>七、热力图的数据流</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">教师定义知识点</span><br><span class="line">    ↓</span><br><span class="line">作业关联标准知识点</span><br><span class="line">    ↓</span><br><span class="line">批改结果写入掌握度记录</span><br><span class="line">    ↓</span><br><span class="line">按课程 / 班级 / 时间聚合</span><br><span class="line">    ↓</span><br><span class="line">教师仪表盘与学生反馈</span><br></pre></td></tr></table></figure>
+
+<p>聚合结果可以缓存，但缓存键必须包含课程、班级和时间范围；底层记录变更后按业务维度失效，不能只清一个全局 key。</p>
+<h2 id="八、最终经验"><a href="#八、最终经验" class="headerlink" title="八、最终经验"></a>八、最终经验</h2><p>知识库项目最容易把注意力放在文件上传、目录树和向量模型上，但长期稳定性取决于三个更朴素的问题：谁拥有数据、谁可以检索、统计引用的是自由文本还是稳定 ID。先把这三件事设计清楚，RAG 和可视化才有可靠基础。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top">LKL-ZREO</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/">https://www.lkl-zero.top/2026/05/25/2026-05-25-knowledge-base-implementation/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://www.lkl-zero.top" target="_blank">LKL-ZREO</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/EduMind/">EduMind</a><a class="post-meta__tags" href="/tags/RAG/">RAG</a><a class="post-meta__tags" href="/tags/PostgreSQL/">PostgreSQL</a></div><div class="post-share"><div class="social-share" data-image="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/06/08/portfolio-ai-teaching-platform/" title="EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘</div></div><div class="info-2"><div class="info-item-1">EduMind 的完整项目全景：从 C 语言作业批改出发，逐步构建知识库、RAG、Agent、异步任务、QQ 机器人与实时课堂，并复盘关键架构决策。</div></div></div></a><a class="pagination-related" href="/2026/05/20/2026-05-20-layered-rate-limiting-bucket4j-redis/" title="Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring Boot 分层限流实战 — 网关层 Bucket4j 令牌桶 + 方法层 Redis Lua 滑动窗口</div></div><div class="info-2"><div class="info-item-1">基于 Spring Boot + Bucket4j + Redisson 构建网关级令牌桶限流，与现有方法级 Redis Lua 滑动窗口限流形成分层防护体系。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/06/08/portfolio-ai-teaching-platform/" title="EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-08</div><div class="info-item-2">EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘</div></div><div class="info-2"><div class="info-item-1">EduMind 的完整项目全景：从 C 语言作业批改出发，逐步构建知识库、RAG、Agent、异步任务、QQ 机器人与实时课堂，并复盘关键架构决策。</div></div></div></a><a class="pagination-related" href="/2026/05/12/2026-05-12-rag-technology-guide/" title="RAG 技术全解析——从原理到实战，打造懂你的知识检索系统"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-12</div><div class="info-item-2">RAG 技术全解析——从原理到实战，打造懂你的知识检索系统</div></div><div class="info-2"><div class="info-item-1">系统讲解 RAG 的文档切分、向量嵌入、混合检索、精排、评估与 ONNX 部署，适合作为从原理进入工程实践的主线教程。</div></div></div></a><a class="pagination-related" href="/2026/05/19/2026-05-19-teaching-system-optimization/" title="教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-19</div><div class="info-item-2">教学系统后端优化实录：Java 21 虚拟线程 + Spring AI 2.0 + Redis Lua 限流 AOP</div></div><div class="info-2"><div class="info-item-1">EduMind 开发档案，记录 Java 21 虚拟线程、AI 框架接入和 Redis Lua 限流的阶段性技术选择。</div></div></div></a><a class="pagination-related" href="/2026/05/18/2026-05-18-homework-system-optimization/" title="作业批改系统高并发改造与 OpenClaw 集成实战"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/%E3%80%90%E5%93%B2%E9%A3%8E%E5%A3%81%E7%BA%B8%E3%80%91%E5%8A%A8%E7%94%BB-%E5%9B%9B%E5%8F%B6%E8%8D%89-%E5%AE%AB%E5%B4%8E%E9%AA%8F.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-18</div><div class="info-item-2">作业批改系统高并发改造与 OpenClaw 集成实战</div></div><div class="info-2"><div class="info-item-1">EduMind 开发档案，记录异步批改、数据库查询优化和 Redis Stream 改造的阶段方案。</div></div></div></a><a class="pagination-related" href="/2026/04/21/postgresql-bigdecimal-avg-type-cast/" title="PostgreSQL AVG() 返回 BigDecimal 导致 ClassCastException 排查"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-21</div><div class="info-item-2">PostgreSQL AVG() 返回 BigDecimal 导致 ClassCastException 排查</div></div><div class="info-2"><div class="info-item-1">PostgreSQL AVG() 聚合函数返回 BigDecimal 而非 Double，MyBatis 查询结果强制类型转换导致 ClassCastException 的排查与修复。</div></div></div></a><a class="pagination-related" href="/2026/05/07/homework-guest-submission-refactoring/" title="作业提交游客模式改造 — JSON 解析、重复提交与统计源修正"><img class="cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-07</div><div class="info-item-2">作业提交游客模式改造 — JSON 解析、重复提交与统计源修正</div></div><div class="info-2"><div class="info-item-1">作业系统从必须登录改为游客文件名提交，改造过程中遇到的 JSON 提取不全、NOT NULL 约束冲突、前端重复提交、仪表盘统计源错误等四层踩坑记录。</div></div></div></a></div></div><hr class="custom-hr"/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="twikoo-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">LKL-ZREO</div><div class="author-info-description">全栈开发 | Spring Boot | RAG | AI Agent | 分布式系统 — 龙空灵的技术博客</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">25</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/LKL-ZREO"><i class="fab fa-github"></i><span>前往我的GitHub</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/LKL-ZREO" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:891878708@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的个人博客！</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A6%82%E8%BF%B0"><span class="toc-number">1.</span> <span class="toc-text">概述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E7%9B%AE%E5%BD%95%E6%A0%91%E7%9F%A5%E8%AF%86%E5%BA%93%EF%BC%88%E5%88%9D%E7%89%88%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">一、目录树知识库（初版）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9C%80%E6%B1%82"><span class="toc-number">2.1.</span> <span class="toc-text">需求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B"><span class="toc-number">2.2.</span> <span class="toc-text">技术选型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%8E%E7%AB%AF%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.3.</span> <span class="toc-text">后端设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">2.4.</span> <span class="toc-text">遇到的问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%85%B1%E4%BA%AB%E7%9F%A5%E8%AF%86%E5%BA%93"><span class="toc-number">3.</span> <span class="toc-text">二、共享知识库</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9C%80%E6%B1%82-1"><span class="toc-number">3.1.</span> <span class="toc-text">需求</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="toc-number">3.2.</span> <span class="toc-text">数据模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#API"><span class="toc-number">3.3.</span> <span class="toc-text">API</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%89%8D%E7%AB%AF%E5%B8%83%E5%B1%80"><span class="toc-number">3.4.</span> <span class="toc-text">前端布局</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9D%83%E9%99%90%E6%A8%A1%E5%9E%8B"><span class="toc-number">3.5.</span> <span class="toc-text">权限模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E9%87%8D%E5%A4%A7%E9%97%AE%E9%A2%98"><span class="toc-number">3.6.</span> <span class="toc-text">遇到的重大问题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E8%B8%A9%E5%9D%91%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">三、踩坑总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%BB%A3%E7%A0%81%E9%87%8F%E7%BB%9F%E8%AE%A1"><span class="toc-number">5.</span> <span class="toc-text">四、代码量统计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E6%95%B0%E6%8D%AE%E9%9A%94%E7%A6%BB%EF%BC%9A%E7%9B%AE%E5%BD%95%E6%A0%91%E4%B9%8B%E5%A4%96%E6%9B%B4%E9%87%8D%E8%A6%81%E7%9A%84%E8%BE%B9%E7%95%8C"><span class="toc-number">6.</span> <span class="toc-text">五、数据隔离：目录树之外更重要的边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E4%BB%8E-AI-%E5%BD%92%E7%B1%BB%E6%94%B9%E6%88%90%E6%95%99%E5%B8%88%E9%A9%B1%E5%8A%A8"><span class="toc-number">7.</span> <span class="toc-text">六、从 AI 归类改成教师驱动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E7%83%AD%E5%8A%9B%E5%9B%BE%E7%9A%84%E6%95%B0%E6%8D%AE%E6%B5%81"><span class="toc-number">8.</span> <span class="toc-text">七、热力图的数据流</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E6%9C%80%E7%BB%88%E7%BB%8F%E9%AA%8C"><span class="toc-number">9.</span> <span class="toc-text">八、最终经验</span></a></li></ol></div></div><div class="card-widget card-post-series"><div class="item-headline"><i class="fa-solid fa-layer-group"></i><span>系列文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j"></a><div class="content"><a class="title" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j">EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j</a><time datetime="2026-07-21T15:00:00.000Z" title="发表于 2026-07-21 23:00:00">2026-07-21</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战"></a><div class="content"><a class="title" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战">OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战</a><time datetime="2026-07-15T16:00:00.000Z" title="发表于 2026-07-16 00:00:00">2026-07-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/11/edumind-production-hardening/" title="EduMind 生产级加固：安全、测试、可观测性与 CI"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind 生产级加固：安全、测试、可观测性与 CI"></a><div class="content"><a class="title" href="/2026/07/11/edumind-production-hardening/" title="EduMind 生产级加固：安全、测试、可观测性与 CI">EduMind 生产级加固：安全、测试、可观测性与 CI</a><time datetime="2026-07-10T16:00:00.000Z" title="发表于 2026-07-11 00:00:00">2026-07-11</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/06/08/portfolio-ai-teaching-platform/" title="EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘"></a><div class="content"><a class="title" href="/2026/06/08/portfolio-ai-teaching-platform/" title="EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘">EduMind 智能教学平台：从作业批改到 Agentic RAG 的完整项目复盘</a><time datetime="2026-06-08T00:00:00.000Z" title="发表于 2026-06-08 08:00:00">2026-06-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/05/25/2026-05-25-knowledge-base-implementation/" title="教学知识库与学情分析：目录树、数据隔离和知识点热力图"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="教学知识库与学情分析：目录树、数据隔离和知识点热力图"></a><div class="content"><a class="title" href="/2026/05/25/2026-05-25-knowledge-base-implementation/" title="教学知识库与学情分析：目录树、数据隔离和知识点热力图">教学知识库与学情分析：目录树、数据隔离和知识点热力图</a><time datetime="2026-05-24T16:00:00.000Z" title="发表于 2026-05-25 00:00:00">2026-05-25</time></div></div></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j"/></a><div class="content"><a class="title" href="/2026/07/21/handwritten-agent-to-langchain4j-migration/" title="EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j">EduMind Agent 架构演进：从 RAG、手写循环到 LangChain4j</a><time datetime="2026-07-21T15:00:00.000Z" title="发表于 2026-07-21 23:00:00">2026-07-21</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战"/></a><div class="content"><a class="title" href="/2026/07/16/2026-07-16-live-classroom-onebot-pre-lesson/" title="OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战">OneBot × EduMind：QQ 机器人、RAG 与实时课堂整合实战</a><time datetime="2026-07-15T16:00:00.000Z" title="发表于 2026-07-16 00:00:00">2026-07-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/14/2026-07-14-rag-under-the-hood-embedding-reranker/" title="RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/www.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普"/></a><div class="content"><a class="title" href="/2026/07/14/2026-07-14-rag-under-the-hood-embedding-reranker/" title="RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普">RAG 底层探秘：从文本到向量的全过程——Embedding、Tokenizer、Reranker 与 Self-Attention 科普</a><time datetime="2026-07-14T09:00:00.000Z" title="发表于 2026-07-14 17:00:00">2026-07-14</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/11/edumind-production-hardening/" title="EduMind 生产级加固：安全、测试、可观测性与 CI"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="EduMind 生产级加固：安全、测试、可观测性与 CI"/></a><div class="content"><a class="title" href="/2026/07/11/edumind-production-hardening/" title="EduMind 生产级加固：安全、测试、可观测性与 CI">EduMind 生产级加固：安全、测试、可观测性与 CI</a><time datetime="2026-07-10T16:00:00.000Z" title="发表于 2026-07-11 00:00:00">2026-07-11</time></div></div></div></div></div></div></main><footer id="footer" style="background: transparent;"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By LKL-ZREO</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="translateLink" type="button" title="简繁转换">繁</button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><script src="/js/tw_cn.js?v=5.5.4"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script><script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js" type="module"></script><script src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.iife.min.js"></script><script src="https://cdn.jsdelivr.net/npm/node-snackbar@0.1.16/dist/snackbar.min.js"></script><div class="js-pjax"><script>(() => {
+  const parseViewBox = viewBox => {
+    if (!viewBox) return null
+    const parts = viewBox.trim().split(/[\s,]+/).map(n => Number(n))
+    if (parts.length !== 4 || parts.some(n => Number.isNaN(n))) return null
+    return parts
+  }
+
+  const getSvgViewBox = svg => {
+    const attr = parseViewBox(svg.getAttribute('viewBox'))
+    if (attr) return attr
+
+    // Fallback: use bbox to build a viewBox
+    try {
+      const bbox = svg.getBBox()
+      if (bbox && bbox.width && bbox.height) return [bbox.x, bbox.y, bbox.width, bbox.height]
+    } catch (e) {
+      // getBBox may fail on some edge cases; ignore
+    }
+
+    const w = Number(svg.getAttribute('width')) || 0
+    const h = Number(svg.getAttribute('height')) || 0
+    if (w > 0 && h > 0) return [0, 0, w, h]
+    return [0, 0, 100, 100]
+  }
+
+  const setSvgViewBox = (svg, vb) => {
+    svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2]} ${vb[3]}`)
+  }
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+  const openSvgInNewTab = ({ source, initViewBox }) => {
+    const getClonedSvg = () => {
+      if (typeof source === 'string') {
+        const template = document.createElement('template')
+        template.innerHTML = source.trim()
+        const svg = template.content.querySelector('svg')
+        return svg ? svg.cloneNode(true) : null
+      }
+      if (source && typeof source.cloneNode === 'function') {
+        return source.cloneNode(true)
+      }
+      return null
+    }
+
+    const clone = getClonedSvg()
+    if (!clone) return
+    if (initViewBox && initViewBox.length === 4) {
+      clone.setAttribute('viewBox', initViewBox.join(' '))
+    }
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    if (!clone.getAttribute('xmlns:xlink') && clone.outerHTML.includes('xlink:')) {
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+    }
+    // inject background to match current theme
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    const bg = getComputedStyle(document.body).backgroundColor || (isDark ? '#1e1e1e' : '#ffffff')
+    if (!clone.style.background) clone.style.background = bg
+
+    const serializer = new XMLSerializer()
+    const svgSource = serializer.serializeToString(clone)
+    const htmlSource = `<!doctype html><html><head><meta charset="utf-8" />
+      <style>
+        html, body { width: 100%; height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background: ${bg}; }
+        svg { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+      </style>
+      </head><body>${svgSource}</body></html>`
+    const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+
+  const attachMermaidViewerButton = wrap => {
+    let btn = wrap.querySelector('.mermaid-open-btn')
+    if (!btn) {
+      btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'mermaid-open-btn'
+      wrap.appendChild(btn)
+    }
+
+    btn.innerHTML = '<i class="fa fa-search fa-fw" aria-hidden="true"></i>'
+
+    if (!btn.__mermaidViewerBound) {
+      btn.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        const svg = wrap.__mermaidOriginalSvg || wrap.querySelector('svg')
+        if (!svg) return
+        const initViewBox = wrap.__mermaidInitViewBox
+        if (typeof svg === 'string') {
+          openSvgInNewTab({ source: svg, initViewBox })
+          return
+        }
+        openSvgInNewTab({ source: svg, initViewBox })
+      })
+      btn.__mermaidViewerBound = true
+    }
+  }
+
+  // Zoom around a point (px, py) in the SVG viewport (in viewBox coordinates)
+  const zoomAtPoint = (vb, factor, px, py) => {
+    const w = vb[2] * factor
+    const h = vb[3] * factor
+    const nx = px - (px - vb[0]) * factor
+    const ny = py - (py - vb[1]) * factor
+    return [nx, ny, w, h]
+  }
+
+  const initMermaidGestures = wrap => {
+    const svg = wrap.querySelector('svg')
+    if (!svg) return
+
+    // Ensure viewBox exists so gestures always work
+    const initVb = getSvgViewBox(svg)
+    wrap.__mermaidInitViewBox = initVb
+    wrap.__mermaidCurViewBox = initVb.slice()
+    setSvgViewBox(svg, initVb)
+
+    // Avoid binding multiple times on themeChange/pjax
+    if (wrap.__mermaidGestureBound) return
+    wrap.__mermaidGestureBound = true
+
+    // Helper: map client (viewport) coordinate -> viewBox coordinate
+    const clientToViewBox = (clientX, clientY) => {
+      const rect = svg.getBoundingClientRect()
+      const vb = wrap.__mermaidCurViewBox || getSvgViewBox(svg)
+      const x = vb[0] + (clientX - rect.left) * (vb[2] / rect.width)
+      const y = vb[1] + (clientY - rect.top) * (vb[3] / rect.height)
+      return { x, y, rect, vb }
+    }
+
+    const state = {
+      pointers: new Map(),
+      startVb: null,
+      startDist: 0,
+      startCenter: null
+    }
+
+    const clampVb = vb => {
+      const init = wrap.__mermaidInitViewBox || vb
+      const minW = init[2] * 0.1
+      const maxW = init[2] * 10
+      const minH = init[3] * 0.1
+      const maxH = init[3] * 10
+      vb[2] = clamp(vb[2], minW, maxW)
+      vb[3] = clamp(vb[3], minH, maxH)
+      return vb
+    }
+
+    const setCurVb = vb => {
+      vb = clampVb(vb)
+      wrap.__mermaidCurViewBox = vb
+      setSvgViewBox(svg, vb)
+    }
+
+    const onPointerDown = e => {
+      // Allow only primary button for mouse
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      svg.setPointerCapture(e.pointerId)
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+      if (state.pointers.size === 1) {
+        state.startVb = (wrap.__mermaidCurViewBox || getSvgViewBox(svg)).slice()
+      } else if (state.pointers.size === 2) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        state.startDist = Math.hypot(dx, dy)
+        state.startVb = (wrap.__mermaidCurViewBox || getSvgViewBox(svg)).slice()
+        state.startCenter = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+      }
+    }
+
+    const onPointerMove = e => {
+      if (!state.pointers.has(e.pointerId)) return
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+      // Pan with 1 pointer
+      if (state.pointers.size === 1 && state.startVb) {
+        const p = [...state.pointers.values()][0]
+        const prev = { x: e.clientX - e.movementX, y: e.clientY - e.movementY }
+        // movementX/Y unreliable on touch, compute from stored last position
+        const last = wrap.__mermaidLastSinglePointer || p
+        const dxClient = p.x - last.x
+        const dyClient = p.y - last.y
+        wrap.__mermaidLastSinglePointer = p
+
+        const { rect } = clientToViewBox(p.x, p.y)
+        const vb = (wrap.__mermaidCurViewBox || getSvgViewBox(svg)).slice()
+        const dx = dxClient * (vb[2] / rect.width)
+        const dy = dyClient * (vb[3] / rect.height)
+        setCurVb([vb[0] - dx, vb[1] - dy, vb[2], vb[3]])
+        return
+      }
+
+      // Pinch zoom with 2 pointers
+      if (state.pointers.size === 2 && state.startVb && state.startDist > 0) {
+        const pts = [...state.pointers.values()]
+        const dx = pts[0].x - pts[1].x
+        const dy = pts[0].y - pts[1].y
+        const dist = Math.hypot(dx, dy)
+        if (!dist) return
+        const factor = state.startDist / dist // dist bigger => zoom in (viewBox smaller)
+
+        const cx = (pts[0].x + pts[1].x) / 2
+        const cy = (pts[0].y + pts[1].y) / 2
+        const centerClient = { x: cx, y: cy }
+
+        const pxy = clientToViewBox(centerClient.x, centerClient.y)
+        const cpx = pxy.x
+        const cpy = pxy.y
+
+        const vb = zoomAtPoint(state.startVb, factor, cpx, cpy)
+        setCurVb(vb)
+      }
+    }
+
+    const onPointerUpOrCancel = e => {
+      state.pointers.delete(e.pointerId)
+      if (state.pointers.size === 0) {
+        state.startVb = null
+        state.startDist = 0
+        state.startCenter = null
+        wrap.__mermaidLastSinglePointer = null
+      } else if (state.pointers.size === 1) {
+        // reset single pointer baseline to avoid jump
+        wrap.__mermaidLastSinglePointer = [...state.pointers.values()][0]
+      }
+    }
+
+    // Wheel zoom (mouse/trackpad)
+    const onWheel = e => {
+      // ctrlKey on mac trackpad pinch; we treat both as zoom
+      e.preventDefault()
+      const delta = e.deltaY
+      const zoomFactor = delta > 0 ? 1.1 : 0.9
+      const { x, y } = clientToViewBox(e.clientX, e.clientY)
+      const vb = (wrap.__mermaidCurViewBox || getSvgViewBox(svg)).slice()
+      setCurVb(zoomAtPoint(vb, zoomFactor, x, y))
+    }
+
+    const onDblClick = () => {
+      const init = wrap.__mermaidInitViewBox
+      if (!init) return
+      wrap.__mermaidCurViewBox = init.slice()
+      setSvgViewBox(svg, init)
+    }
+
+    svg.addEventListener('pointerdown', onPointerDown)
+    svg.addEventListener('pointermove', onPointerMove)
+    svg.addEventListener('pointerup', onPointerUpOrCancel)
+    svg.addEventListener('pointercancel', onPointerUpOrCancel)
+    svg.addEventListener('wheel', onWheel, { passive: false })
+    svg.addEventListener('dblclick', onDblClick)
+  }
+
+  const runMermaid = ele => {
+    window.loadMermaid = true
+    const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default'
+
+    ele.forEach((item, index) => {
+      const mermaidSrc = item.firstElementChild
+
+      // Clear old render (themeChange/pjax will rerun)
+      const oldSvg = item.querySelector('svg')
+      if (oldSvg) oldSvg.remove()
+      item.__mermaidGestureBound = false
+
+      const config = mermaidSrc.dataset.config ? JSON.parse(mermaidSrc.dataset.config) : {}
+      if (!config.theme) {
+        config.theme = theme
+      }
+      const mermaidThemeConfig = `%%{init: ${JSON.stringify(config)}}%%\n`
+      const mermaidID = `mermaid-${index}`
+      const mermaidDefinition = mermaidThemeConfig + mermaidSrc.textContent
+
+      const renderFn = mermaid.render(mermaidID, mermaidDefinition)
+      const renderMermaid = svg => {
+        mermaidSrc.insertAdjacentHTML('afterend', svg)
+        if (true) initMermaidGestures(item)
+        item.__mermaidOriginalSvg = svg
+        if (false) attachMermaidViewerButton(item)
+      }
+
+
+      // mermaid v9 and v10 compatibility
+      typeof renderFn === 'string' ? renderMermaid(renderFn) : renderFn.then(({ svg }) => renderMermaid(svg))
+    })
+  }
+
+  const codeToMermaid = () => {
+    const codeMermaidEle = document.querySelectorAll('pre > code.mermaid')
+    if (codeMermaidEle.length === 0) return
+
+    codeMermaidEle.forEach(ele => {
+      const preEle = document.createElement('pre')
+      preEle.className = 'mermaid-src'
+      preEle.hidden = true
+      preEle.textContent = ele.textContent
+      const newEle = document.createElement('div')
+      newEle.className = 'mermaid-wrap'
+      newEle.appendChild(preEle)
+      ele.parentNode.replaceWith(newEle)
+    })
+  }
+
+  const loadMermaid = () => {
+    if (true) codeToMermaid()
+    const $mermaid = document.querySelectorAll('#article-container .mermaid-wrap')
+    if ($mermaid.length === 0) return
+
+    const runMermaidFn = () => runMermaid($mermaid)
+    btf.addGlobalFn('themeChange', runMermaidFn, 'mermaid')
+    window.loadMermaid ? runMermaidFn() : btf.getScript('https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js').then(runMermaidFn)
+  }
+
+  btf.addGlobalFn('encrypt', loadMermaid, 'mermaid')
+  window.pjax ? loadMermaid() : document.addEventListener('DOMContentLoaded', loadMermaid)
+})()</script><script>(() => {
   const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
   const option = {"path":"window.location.pathname"}
 
@@ -556,64 +900,4 @@
 POWERMODE.shake = false;
 POWERMODE.mobile = false;
 document.body.addEventListener('input', POWERMODE);
-</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.5.4"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
-  function butterfly_categories_card_injector_config(){
-    // 检查容器是否存在
-    var parent_div_git = document.getElementById('recent-posts');
-    // 如果容器不存在，则动态创建
-    if (!parent_div_git) {
-      console.warn('butterfly_categories_card: 挂载容器不存在，正在动态创建...');
-      // 创建新容器（默认插入到页面主体顶部）
-      parent_div_git = document.createElement('div');
-      parent_div_git.id = 'recent-posts'; // 赋予配置的ID
-      document.querySelector('#page').prepend(parent_div_git); // 插入到 #content-inner 内
-    }
-    var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 190px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 160px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post3.png);"> <a class="categoryBar-list-link" href="/categories/AI-工程/">AI 工程</a><span class="categoryBar-list-count">10</span><span class="categoryBar-list-descr">后端开发</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/post4.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/">后端开发</a><span class="categoryBar-list-count">13</span><span class="categoryBar-list-descr">AI 工程</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/2.png);"> <a class="categoryBar-list-link" href="/categories/AI-工程/后端开发/">后端开发</a><span class="categoryBar-list-count">4</span><span class="categoryBar-list-descr">嵌入式开发</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/21png.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/高并发/">高并发</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">学习笔记</span></li><li class="categoryBar-list-item" style="background:url(https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/99.png);"> <a class="categoryBar-list-link" href="/categories/后端开发/项目实战/">项目实战</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr">作品集</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/面试复盘/">面试复盘</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/面试准备/">面试准备</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/">AI</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/学习笔记/">学习笔记</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端开发/AI-工程/">AI 工程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/嵌入式开发/">嵌入式开发</a><span class="categoryBar-list-count">3</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目汇报/">项目汇报</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/博客/">博客</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI/系统架构/">系统架构</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/作品集/">作品集</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/">后端</a><span class="categoryBar-list-count">4</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/作品集/作品集/">作品集</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/Spring-Boot/">Spring Boot</a><span class="categoryBar-list-count">2</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/DevOps/">DevOps</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/开源/">开源</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/开源/教程/">教程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/Java/">Java</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目介绍/">项目介绍</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/全栈/">全栈</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/AI-工程/科普/">科普</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目进展/">项目进展</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目复盘/">项目复盘</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/后端/Spring-Boot/生产实践/">生产实践</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/项目复盘/AI-工程/">AI 工程</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/categories/EduMind/">EduMind</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
-    console.log('已挂载 butterfly_categories_card');
-    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
-  }
-  // 路径匹配逻辑（使用 startsWith）
-  if (location.pathname.startsWith('/categories/,/tags/,/archives/,/') || '/categories/,/tags/,/archives/,/' === 'all') {
-    butterfly_categories_card_injector_config();
-  }
-  </script><script data-pjax>
-  function butterfly_swiper_injector_config(){
-    var parent_div_git = document.getElementById('recent-posts');
-    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="2026/04/17/blog-homework-system/" alt=""><img width="48" height="48" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-lazy-src="https://lkl-11.oss-cn-guangzhou.aliyuncs.com/blog/wasaq.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-04-17</span><a class="blog-slider__title" href="2026/04/17/blog-homework-system/" alt="">智能作业批改系统</a><div class="blog-slider__text">从零构建基于 Spring Boot + Vue3 + RAG 的智能作业批改平台，涵盖架构设计、智能文档分块、SSE 流式对话、JWT 认证等核心技术实现。</div><a class="blog-slider__button" href="2026/04/17/blog-homework-system/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
-    console.log('已挂载butterfly_swiper')
-    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
-    }
-  var elist = 'undefined'.split(',');
-  var cpage = location.pathname;
-  var epage = '/';
-  var flag = 0;
-
-  for (var i=0;i<elist.length;i++){
-    if (cpage.includes(elist[i])){
-      flag++;
-    }
-  }
-
-  if ((epage ==='all')&&(flag == 0)){
-    butterfly_swiper_injector_config();
-  }
-  else if (epage === cpage){
-    butterfly_swiper_injector_config();
-  }
-  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><div class="js-pjax"><script async="async">var arr = document.getElementsByClassName('recent-post-item');
-for(var i = 0;i<arr.length;i++){
-    arr[i].classList.add('wow');
-    arr[i].classList.add('animate__zoomIn');
-    arr[i].setAttribute('data-wow-duration', '1s');
-    arr[i].setAttribute('data-wow-delay', '0s');
-    arr[i].setAttribute('data-wow-offset', '100');
-    arr[i].setAttribute('data-wow-iteration', '1');
-  }</script><script async="async">var arr = document.getElementsByClassName('card-widget');
-for(var i = 0;i<arr.length;i++){
-    arr[i].classList.add('wow');
-    arr[i].classList.add('animate__zoomIn');
-    arr[i].setAttribute('data-wow-duration', '');
-    arr[i].setAttribute('data-wow-delay', '');
-    arr[i].setAttribute('data-wow-offset', '');
-    arr[i].setAttribute('data-wow-iteration', '');
-  }</script></div><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow.min.js"></script><script defer src="https://npm.elemecdn.com/hexo-butterfly-wowjs/lib/wow_init.js"></script><!-- hexo injector body_end end --><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
+</script><script id="click-show-text" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-show-text.min.js" data-mobile="false" data-text="学习,工作,打游戏" data-fontsize="15px" data-random="true" async="async"></script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/metingjs/dist/Meting.min.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.5.4"></script></div></div><script src="/live2dw/lib/L2Dwidget.min.js?094cbace49a39548bed64abff5988b05"></script><script>L2Dwidget.init({"pluginRootPath":"live2dw/","pluginJsPath":"lib/","pluginModelPath":"assets/","tagMode":false,"log":false,"model":{"jsonPath":"/live2dw/assets/koharu.model.json"},"display":{"position":"right","width":150,"height":300},"mobile":{"show":false},"react":{"opacity":0.9}});</script></body></html>
